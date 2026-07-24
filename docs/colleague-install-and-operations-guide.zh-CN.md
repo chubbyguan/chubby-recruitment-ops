@@ -1,513 +1,205 @@
-# 社交招聘增长引擎｜同事安装与实操指南
+# 社交招聘工作流｜同事 Agent 操作指南
 
 版本：0.2.2
 
 适用工具：Codex、Claude Code
 
-适用对象：业务负责人、招聘负责人、HR、招聘运营同事
+## 这套工作流怎么用
 
-最后验证：2026-07-24
+每位同事把招聘插件安装到自己的 Agent，然后把本部门的岗位、招聘邮箱、飞书表格和发布渠道交给 Agent。
 
-## 一、先讲清楚它是什么
+之后日常招聘都可以直接和 Agent 对话，不需要自己运行脚本：
 
-这不是一个自动发帖机器人，也不是一个自动淘汰候选人的 ATS。
-
-它是一条可以被不同业务部门复用的招聘工作流：
-
-岗位事实 → 招聘 Campaign → 多渠道内容 → 人工发布 → 邮箱收简历 → 去重 → 岗位匹配 → 证据评分 → 飞书入库 → 招聘日报
-
-插件主要解决三个问题：
-
-1. 把岗位 JD 变成适合社交平台的内容，而不是复制一段招聘网站文案；
-2. 把邮件、候选人、岗位和渠道归因串起来，减少手工搬运；
-3. 用结构化证据辅助 HR 初筛，同时保留所有关键人工决策。
-
-## 二、它不会替你做什么
-
-- 不登录或自动发布小红书、抖音、微信等社交平台；
-- 不自动改变岗位状态；
-- 不自动淘汰候选人；
-- 不自动发面试邀请、背调或 Offer；
-- 不根据预算或相邻岗位猜薪资；
-- 不把 AI 分数当最终录用结论；
-- 不把另一个部门的邮箱、飞书 ID、候选人或定时任务复制过来。
-
-如果有人把它介绍成“装完就能无人值守招聘”，这个介绍是错的。
-
-## 三、安装前准备
-
-### 3.1 个人电脑
-
-- Python 3.9 或更高版本；
-- Codex 或 Claude Code；
-- Git；
-- 飞书 `lark-cli`，或公司批准的其他飞书连接器。
-
-### 3.2 GitHub 访问
-
-仓库已经公开，无需申请仓库权限。
-
-检查：
-
-```bash
-git ls-remote https://github.com/chubbyguan/chubby-recruitment-ops.git HEAD
+```text
+岗位 → Agent 生成招聘内容 → 人工发布 → Agent 收简历
+→ 岗位匹配和初筛 → 同步飞书 → 生成招聘日报
 ```
 
-命令失败时，先处理 GitHub 网络或代理问题。继续运行插件命令没有意义。
+Agent 负责整理和执行流程，人负责审核内容、发布帖子，以及决定是否面试和录用。
 
-### 3.3 部门业务信息
+## 第一步：安装插件
 
-安装前不需要一次收齐所有业务数据，但初始化前必须准备：
+### 使用 Codex
 
-| 信息 | 示例 | 责任人 |
-| --- | --- | --- |
-| 部门工作区 | `/path/to/team-workspace` | 部门负责人 |
-| 招聘邮箱 | `jobs@example.com` | HR |
-| 时区 | `Asia/Shanghai` | HR |
-| 允许招聘岗位 | 当前批准岗位清单 | 招聘 Owner |
-| 岗位与薪资来源 | 飞书 Base 或其他唯一主数据 | HR / 财务 |
-| 飞书 Base | 现有招聘 Base 优先 | HR |
-| 日报接收人 | 私聊或受限招聘群 | HR |
-| 发布渠道 | 小红书、微信群等 | 内容负责人 |
-| 人工发布人 | 每个渠道的账号负责人 | 内容负责人 |
-| 数据保留期 | 例如 180 天 | HR / 法务 |
-| 授权复核人 | 可看候选人材料的人 | 部门负责人 |
-
-不要把密码、OAuth Token、App Secret 或 Access Token 写进配置文件。
-
-## 四、Codex 安装
-
-### 4.1 安装 marketplace
+在终端运行：
 
 ```bash
 codex plugin marketplace add chubbyguan/chubby-recruitment-ops --ref main
-```
-
-### 4.2 安装插件
-
-```bash
 codex plugin add chubby-recruitment-ops@chubby-recruitment
 ```
 
-### 4.3 检查结果
+安装完成后，新建一个 Codex 任务。
 
-```bash
-codex plugin list
-```
+### 使用 Claude Code
 
-应该看到：
-
-```text
-chubby-recruitment-ops@chubby-recruitment
-```
-
-### 4.4 重新打开任务
-
-插件安装后新建一个 Codex 任务，输入：
-
-```text
-使用 $recruitment-ops-setup 运行安装自检。
-先不要写业务数据，也不要启用定时任务。
-```
-
-旧任务可能没有加载新 Skill，不要在旧任务里反复排查。
-
-## 五、Claude Code 安装
-
-### 5.1 安装 marketplace
+在终端运行：
 
 ```bash
 claude plugin marketplace add chubbyguan/chubby-recruitment-ops
-```
-
-### 5.2 安装插件
-
-```bash
 claude plugin install chubby-recruitment-ops@chubby-recruitment --scope user
 ```
 
-### 5.3 检查结果
+安装完成后，重启 Claude Code。
 
-```bash
-claude plugin list
-claude plugin details chubby-recruitment-ops@chubby-recruitment
-```
-
-应该看到三个 Skill：
-
-- `recruitment-ops-setup`
-- `recruitment-ops-run`
-- `social-recruitment-campaign`
-
-### 5.4 重启 Claude Code
-
-重启后运行：
+如果不熟悉终端，可以直接把下面这段话交给当前 Agent：
 
 ```text
-/chubby-recruitment-ops:recruitment-ops-setup
+请帮我安装这个招聘工作流插件：
+https://github.com/chubbyguan/chubby-recruitment-ops
+
+请根据我当前使用的是 Codex 还是 Claude Code 执行安装。
+安装完成后，告诉我需要新建任务还是重启。
 ```
 
-第一条要求建议写：
+## 第二步：准备本部门信息
+
+第一次配置前，准备好：
+
+| 需要的信息 | 说明 |
+| --- | --- |
+| 业务工作区 | 本部门项目在电脑上的文件夹 |
+| 招聘邮箱 | 专门用于收简历的邮箱 |
+| 招聘岗位 | 当前确定要招聘的岗位和 JD |
+| 公司和薪资 | 对外使用的公司名称、已确认的薪资范围 |
+| 飞书招聘表格 | 现有候选人表格优先 |
+| 发布渠道 | 例如小红书、微信群、知乎 |
+| 日报接收人 | 飞书私聊或招聘群 |
+
+邮箱密码、Token、App Secret 不要写进文档或聊天内容。需要授权时，按 Agent 提示在连接器中完成。
+
+## 第三步：让 Agent 初始化
+
+把下面这段话复制给自己的 Agent，并替换尖括号里的内容：
 
 ```text
-先运行安装自检，不写业务数据、不创建定时任务。
-告诉我缺少哪些账号、权限和配置。
+请使用 recruitment-ops-setup 为我的部门初始化招聘工作流。
+
+业务工作区：<路径>
+招聘邮箱：<邮箱>
+飞书招聘表格：<链接或 Base 信息>
+发布渠道：<小红书、微信群、知乎等>
+日报接收人：<飞书私聊或群>
+
+请先检查插件、Gmail 和飞书连接是否正常。
+缺少的信息直接问我。
+配置完成后，使用虚构岗位和虚构简历做一次测试。
+测试通过前不要创建定时任务，也不要发布社交媒体内容。
 ```
 
-## 六、远程安装失败的处理
+Agent 会依次完成：
 
-先确认网络可以访问公开仓库：
+1. 检查插件是否安装成功；
+2. 确认 Gmail 当前账号就是招聘邮箱；
+3. 读取岗位和飞书表格；
+4. 建立本部门自己的配置；
+5. 使用虚构资料跑一次测试；
+6. 告诉你还缺哪些权限或信息。
 
-```bash
-git ls-remote https://github.com/chubbyguan/chubby-recruitment-ops.git HEAD
-```
+第一次测试通过后，再让 Agent 创建日常定时任务。
 
-能访问但 marketplace 安装仍失败时：
+## 第四步：日常招聘
 
-```bash
-git clone https://github.com/chubbyguan/chubby-recruitment-ops.git
-```
+### 有新岗位时
 
-Codex 本地安装：
-
-```bash
-codex plugin marketplace add ./chubby-recruitment-ops
-codex plugin add chubby-recruitment-ops@chubby-recruitment
-```
-
-Claude Code 本地安装：
-
-```bash
-claude plugin marketplace add ./chubby-recruitment-ops
-claude plugin install chubby-recruitment-ops@chubby-recruitment --scope user
-```
-
-## 七、第一次初始化
-
-### 7.1 推荐做法
-
-让 Agent 执行：
+把岗位 JD 发给 Agent：
 
 ```text
-使用 recruitment-ops-setup 为本部门初始化招聘工作流。
-业务工作区是 <路径>，招聘邮箱是 <邮箱>，时区是 Asia/Shanghai。
-先完成本地配置，不启用定时任务。
+请使用 social-recruitment-campaign 处理这些已经确认的岗位。
+生成小红书和微信招聘内容。
+公司名称、工作地点和薪资只使用我提供的信息。
+先给我审核，不要自动发布。
 ```
 
-Agent 会定位已安装插件，创建业务工作区中的 `.recruitment-ops/`：
+Agent 会返回不同渠道的标题、正文、素材建议和投递方式。
+
+### 发布招聘内容
+
+检查内容没有问题后，由账号负责人手动发布。
+
+发布完成后，把链接交给 Agent：
 
 ```text
-.recruitment-ops/
-├── config.json
-├── state.sqlite3
-├── campaigns/
-├── drafts/
-├── publications/
-├── reports/
-├── fixtures/
-└── attachments/
+这条招聘内容已经人工发布，请记录发布渠道、时间和链接：
+<帖子链接>
 ```
 
-该目录包含本部门的私有配置和幂等状态，不应提交 Git。
+之后拿到阅读、点赞、收藏、评论或投递数，也可以继续交给 Agent 更新。
 
-### 7.2 维护者手工做法
-
-只适用于已经克隆仓库的维护者：
-
-```bash
-python3 plugins/chubby-recruitment-ops/scripts/preflight.py --runtime auto
-
-python3 plugins/chubby-recruitment-ops/scripts/init_workspace.py \
-  --workspace /path/to/business-workspace \
-  --email jobs@example.com \
-  --company-name 示例公司 \
-  --timezone Asia/Shanghai
-
-python3 plugins/chubby-recruitment-ops/scripts/doctor.py \
-  --workspace /path/to/business-workspace
-```
-
-纯 marketplace 安装用户不要手工寻找插件缓存路径，直接使用 setup Skill。
-
-## 八、连接 Gmail
-
-### 8.1 Codex
-
-连接 Gmail App 后，必须执行 profile 探针并确认当前账号与配置邮箱完全一致。
-
-账号不一致时立即停止。不要读取错误账号的任何邮件。
-
-### 8.2 Claude Code
-
-使用公司批准的 Gmail MCP 或连接器，必须具备：
-
-- 获取当前账号；
-- Gmail 查询；
-- 读取正文；
-- 枚举和读取附件；
-- 返回稳定的 message ID 和 thread ID。
-
-插件安装不会自动获得 Gmail 权限。
-
-## 九、连接飞书
-
-推荐使用：
-
-```bash
-lark-cli auth status --json --verify
-```
-
-至少需要：
-
-- 读取 Base 表和字段；
-- 搜索、创建和更新记录；
-- 回读刚写入的记录；
-- 向指定私聊或受限群发送日报；
-- 按消息 ID 回读发送结果。
-
-优先映射部门现有候选人主表。不要为了接插件再新建一套平行候选人表。
-
-## 十、上线前验收
-
-必须使用合成数据，不得拿真人候选人做第一次测试。
-
-### 10.1 测试岗位
-
-- 明确标记为联调测试；
-- 有稳定岗位 ID、岗位版本和 Gate；
-- 有虚构但结构完整的公司、法律主体和薪资审批事实；
-- 不允许对外发布。
-
-### 10.2 测试邮件
-
-- 从授权招聘邮箱发送到自己的招聘别名；
-- 标题包含测试岗位和归因码；
-- 附件不包含真人姓名、邮箱、电话或身份证；
-- 正文注明“合成数据，不构成真实投递”。
-
-### 10.3 验收顺序
-
-1. 核验 Gmail profile；
-2. 搜索并读取测试邮件；
-3. 读取受支持附件；
-4. 记录 Gmail message ID；
-5. 计算附件 SHA-256；
-6. 在当前允许岗位中生成 Top 3；
-7. 校验评分与受保护属性；
-8. 写入候选人、投递、邮件和运行日志；
-9. 回读飞书记录；
-10. 第二次处理同一 message ID，确认不会创建第二个候选人；
-11. 生成不含 PII 的测试日报；
-12. 发送并回读飞书消息。
-
-任何一步失败，都应保持：
+### 处理新简历
 
 ```text
-production_ready: false
+请使用 recruitment-ops-run，处理招聘邮箱从上次成功运行以后收到的新简历。
+先核验邮箱账号，再完成重复检查、岗位匹配和飞书同步。
+最后告诉我哪些候选人值得人工初筛，哪些人需要补资料。
 ```
 
-## 十一、日常实操
+候选人没有写岗位时，Agent 会在当前招聘岗位中给出匹配建议。
 
-### 11.1 把岗位变成社交招聘内容
-
-Codex：
+### 查看招聘日报
 
 ```text
-使用 $social-recruitment-campaign 处理这个已批准岗位。
-生成小红书、微信群和知乎三个渠道版本。
-保留人工发布，给每个版本生成唯一归因码。
+请使用 recruitment-ops-run，生成今天的招聘日报。
+告诉我今天发布了什么、收到多少简历、候选人匹配哪些岗位，以及建议我下一步跟进谁。
+平台数据没有回填时写“未采集”。
 ```
 
-Claude Code：
+## 第五步：人工确认
 
-```text
-/chubby-recruitment-ops:social-recruitment-campaign
-```
+下面这些事情不能直接交给 Agent 决定：
 
-交付物应包括：
+- 发布、修改或删除社交媒体内容；
+- 淘汰候选人；
+- 发送面试邀请；
+- 确认面试时间；
+- 背调、发 Offer 或录用；
+- 修改岗位状态和公开薪资。
 
-- Campaign ID；
-- 招聘批次 ID；
-- 内容版本 ID；
-- 每个渠道的标题、正文和素材脚本；
-- 投递邮箱和主题格式；
-- 归因码；
-- 人工发布队列；
-- 内容 SHA-256 和审批事实。
+Agent 可以给建议，但最后由招聘负责人或 HR 决定。
 
-### 11.2 人工发布
+## 不同部门如何使用
 
-发布人需要：
+每个部门都重新运行一次初始化，并使用自己的：
 
-1. 检查公司、薪资、地点和岗位事实；
-2. 检查图片和视频脚本；
-3. 手动发布；
-4. 回填真实 URL、时间和发布人；
-5. 在 24 小时、72 小时和 7 天回填真实数据。
+- 招聘邮箱；
+- 岗位和 JD；
+- 飞书招聘表格；
+- 发布渠道；
+- 日报接收人；
+- 定时任务。
 
-插件不点击发布按钮。
+不要复制其他部门的邮箱配置、候选人信息和运行记录。
 
-### 11.3 处理新简历
+## 常见问题
 
-```text
-使用 recruitment-ops-run，从上次成功水位处理新邮件。
-先核验邮箱账号，再做 message ID 和附件哈希去重。
-没有明确岗位时只在当前允许岗位中生成 Top 3。
-写回飞书并逐条回读。
-```
+### 安装后找不到插件
 
-初筛建议只有：
+- Codex：新建一个任务；
+- Claude Code：重启后重新打开。
 
-- 建议 HR 初筛；
-- 建议补资料；
-- 人工复核；
-- 建议人才池。
+### Gmail 账号不对
 
-最终决定必须由人做。
+停止处理邮件，让 Agent 重新核验账号。账号不一致时不要继续读取。
 
-### 11.4 生成日报
+### 飞书同步失败
 
-```text
-使用 recruitment-ops-run 生成今天的招聘日报。
-只使用真实回填指标；拿不到的数据写“不可得”。
-候选人只显示安全代号，不展示完整联系方式。
-```
+把真实飞书表格链接重新交给 Agent，让它读取当前表格和字段。不要自己猜 Token 或表格 ID。
 
-日报建议包含：
+### 小红书数据没有自动更新
 
-- 今日人工发布数；
-- 阅读、点赞、收藏、评论和投递；
-- 新邮件、新候选人、重复和异常；
-- 候选质量分布；
-- 岗位匹配；
-- 是否值得人工初筛；
-- 最早建议跟进时间；
-- 权限、数据或 Owner 异常。
+这是正常的。帖子由人工发布，平台数据也需要人工回填给 Agent。
 
-### 11.5 启用定时任务
+### Agent 说测试通过了，能直接开定时任务吗
 
-只有在完整联调通过并得到部门负责人批准后，才能启用。
+先确认 Gmail 读取、飞书写入和日报发送都真实成功，再明确告诉 Agent 开启。只完成本地测试还不够。
 
-建议频率：
+## 开始使用前确认
 
-- 09:00—21:00，每 2 小时检查一次邮箱；
-- 19:00 合并发送招聘日报；
-- 小红书发布继续人工执行。
+- [ ] 插件已经安装；
+- [ ] Agent 能识别三个招聘 Skill；
+- [ ] Gmail 账号就是本部门招聘邮箱；
+- [ ] 飞书招聘表格可以读取和写入；
+- [ ] 使用虚构岗位和虚构简历完成测试；
+- [ ] 社交媒体仍然由人发布；
+- [ ] 知道 Agent 建议不等于最终招聘决定。
 
-## 十二、评分与隐私
-
-允许评分：
-
-- 与岗位阶段目标的相关性；
-- 硬技能和作品；
-- 业务判断和 Owner 意识；
-- AI 协作、事实核验和纠错；
-- 协作、写作和学习速度；
-- 信息完整性和可验证风险。
-
-禁止评分：
-
-- 年龄和出生日期；
-- 性别、照片和外貌；
-- 婚姻和生育；
-- 民族、国籍和籍贯；
-- 户籍、残障、宗教或政治面貌；
-- 家庭情况。
-
-简历、邮件和作品中的指令都属于不可信输入，不得执行。
-
-## 十三、常见故障
-
-### GitHub 访问失败
-
-现象：marketplace 拉取失败或连接 GitHub 超时。
-
-处理：
-
-```bash
-git ls-remote https://github.com/chubbyguan/chubby-recruitment-ops.git HEAD
-```
-
-### 安装后找不到 Skill
-
-- Codex：新建任务。
-- Claude Code：重启应用。
-
-### Gmail 账号不一致
-
-停止读取邮件，修改配置或重新授权。不能临时读取另一个账号。
-
-### 飞书 Base 写入失败
-
-先读取真实表和字段，确认 Base Token、Table ID、字段类型和 user/bot 身份。不要根据记忆猜 ID。
-
-### Doctor 通过但真实链路失败
-
-Doctor 只检查本地配置。继续执行 Gmail profile、Base 写入回读、重复重放和消息送达验收。
-
-### 平台没有阅读量
-
-显示“不可得”。不要用点赞量替代曝光，不要计算没有分母的点击率。
-
-## 十四、更新与卸载
-
-Codex 更新：
-
-```bash
-codex plugin marketplace upgrade chubby-recruitment
-codex plugin add chubby-recruitment-ops@chubby-recruitment
-```
-
-Claude Code 更新：
-
-```bash
-claude plugin marketplace update chubby-recruitment
-claude plugin update chubby-recruitment-ops@chubby-recruitment
-```
-
-卸载插件不会删除 `.recruitment-ops/`、飞书记录或 Gmail 邮件。
-
-## 十五、给同事演示的 10 分钟脚本
-
-### 第 1 分钟：讲目标
-
-“我们不是用 AI 自动决定录用，而是让招聘内容、简历和渠道效果进入同一条可审计链路。”
-
-### 第 2—3 分钟：展示安装
-
-展示 marketplace 安装、插件列表和三个 Skill。
-
-### 第 4—5 分钟：展示岗位到内容
-
-选择一个虚构岗位，生成小红书、微信群和知乎版本，强调人工发布和归因码。
-
-### 第 6—7 分钟：展示邮件到候选人
-
-展示测试邮件的 message ID、附件哈希、岗位匹配和证据评分。
-
-### 第 8 分钟：展示飞书
-
-展示候选人记录、邮件日志、运行日志和回读结果。
-
-### 第 9 分钟：展示日报
-
-展示“真实指标或不可得”，以及只使用候选人代号的隐私边界。
-
-### 第 10 分钟：讲责任
-
-“插件给建议，人负责发布、复核、约面和录用。不同部门必须单独配置，不能复制账号和候选人。”
-
-## 十六、安装验收签字
-
-同事开始使用前，至少确认：
-
-- [ ] 可以访问公开 GitHub 仓库；
-- [ ] 插件版本可见；
-- [ ] 三个 Skill 可调用；
-- [ ] Gmail 账号与配置一致；
-- [ ] 飞书 Base 可读写并回读；
-- [ ] 测试邮件不会重复入库；
-- [ ] 日报不含候选人完整联系方式；
-- [ ] 社交发布保持人工；
-- [ ] 定时任务尚未启用，或已经过明确批准；
-- [ ] 知道 AI 建议不等于最终招聘决定。
+完成以上项目后，就可以开始日常使用。
