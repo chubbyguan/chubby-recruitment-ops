@@ -4,30 +4,32 @@
   "top_matches": [
     {
       "job_id": "DEMO-VIDEO-01",
+      "job_version": "DEMO-V1",
       "confidence": 0.82,
       "mode": "formal",
-      "matched_requirements": [
-        "有独立短视频项目经验"
+      "matched_requirement_ids": [
+        "REQ-VIDEO-OWNERSHIP"
       ],
-      "missing_requirements": [
-        "缺少可核验后台数据"
+      "missing_requirement_ids": [
+        "REQ-VERIFIED-METRICS"
       ],
-      "evidence": [
-        "简历写明负责选题、拍摄和剪辑"
+      "evidence_refs": [
+        "EVIDENCE-RESUME-001"
       ]
     },
     {
       "job_id": "DEMO-CONTENT-01",
+      "job_version": "DEMO-V1",
       "confidence": 0.55,
       "mode": "formal",
-      "matched_requirements": [
-        "有内容策划经验"
+      "matched_requirement_ids": [
+        "REQ-CONTENT-PLANNING"
       ],
-      "missing_requirements": [
-        "未证明团队管理经验"
+      "missing_requirement_ids": [
+        "REQ-TEAM-MANAGEMENT"
       ],
-      "evidence": [
-        "作品集中包含栏目策划"
+      "evidence_refs": [
+        "EVIDENCE-PORTFOLIO-001"
       ]
     }
   ],
@@ -41,15 +43,15 @@
   },
   "total_score": 69,
   "recommendation": "request_more_info",
-  "evidence_summary": [
-    "能够独立完成短视频基础链路",
-    "缺少作品后台数据与个人贡献拆分"
+  "evidence_codes": [
+    "work_sample_verified",
+    "information_incomplete"
   ],
-  "red_flags": [],
-  "missing_materials": [
-    "代表作品链接",
-    "作品后台数据截图",
-    "个人贡献说明"
+  "red_flag_codes": [],
+  "missing_material_codes": [
+    "work_sample",
+    "metrics_screenshot",
+    "contribution_statement"
   ],
   "human_review_required": true
 }

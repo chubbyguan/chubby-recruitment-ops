@@ -32,22 +32,23 @@ The selected adapter must support:
 
 Logical table names must be mapped in config. Never bake a department's App Token, Table ID, Chat ID, or Open ID into the plugin.
 
-## Xiaohongshu capability contract
+## Social channel capability contract
 
 The default adapter is human operation:
 
-- the plugin prepares copy, card scripts, tags, and attribution codes;
+- the plugin prepares channel-native copy, card or video scripts, tags, and attribution codes;
 - a human performs final review and publication;
 - the human or an approved read-only integration records URL and metrics;
 - missing analytics remain explicitly unavailable.
 
-Do not use browser automation to publish or mass-edit posts.
+Do not use browser automation to publish or mass-edit posts on any social platform.
 
 ## Job source contract
 
 Every job must expose:
 
 - stable job ID;
+- source record ID, source revision, modified time, and live readback time;
 - title and department;
 - status or gate;
 - JD version;
@@ -57,20 +58,27 @@ Every job must expose:
 - 30/60/90-day outcomes or equivalent first-stage results;
 - evidence or portfolio requirements;
 - red lines;
+- approved public company name and legal employing entity;
+- approved public salary range, approval flag, and approval reference;
+- salary approval actor and approval time;
 - whether formal recruiting or talent mapping is allowed.
 
 Unknown status blocks publication and formal matching.
+
+Every matching run must use a current eligible-job snapshot containing job ID, job version, and gate. A stale version, a frozen or closed gate, or a formal/talent-mapping mode conflict blocks the assessment.
 
 ## Base minimum model
 
 Use `<plugin-root>/assets/feishu-base-schema.json` as the logical model.
 
-The candidate table remains the sole candidate master. Content, mail, and run tables contain process facts only.
+The candidate table remains the sole candidate master. Applications are separate job-level facts. Campaign, content, publication, metric, attribution, mail, and run tables contain process facts only.
 
 ## Acceptance evidence
 
 Keep:
 
+- job-source record, revision, modified time, readback time, and canonical hash;
+- content fingerprint, human approval record ID, and approval readback result;
 - synthetic Gmail message ID and attachment hash;
 - assessment JSON and validation result;
 - created candidate record ID;

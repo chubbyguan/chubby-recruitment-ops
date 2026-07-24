@@ -1,13 +1,53 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "department_id": "replace-with-department-id",
   "timezone": "Asia/Shanghai",
+  "company": {
+    "public_name": "诺特兰德集团",
+    "disclose_public_name": true,
+    "legal_entity_source": "job_source"
+  },
   "public_content": {
     "application_email": "jobs@example.com",
-    "disclose_company_name": false,
-    "disclose_salary": false,
-    "xiaohongshu_publish_mode": "manual",
     "privacy_notice": "投递材料仅用于招聘评估；如只同意用于本岗位，请在邮件中注明。"
+  },
+  "compensation": {
+    "source": "job_source",
+    "public_range_field": "公开薪资范围",
+    "approval_field": "薪资公开已批准",
+    "approval_reference_field": "薪资审批记录",
+    "require_approved_range": true,
+    "fallback": "block_publication"
+  },
+  "channels": {
+    "enabled": [
+      "xiaohongshu",
+      "wechat_groups",
+      "zhihu"
+    ],
+    "supported": [
+      "xiaohongshu",
+      "wechat_moments",
+      "wechat_groups",
+      "wechat_official",
+      "wechat_channels",
+      "douyin",
+      "bilibili",
+      "zhihu",
+      "maimai",
+      "linkedin"
+    ],
+    "publish_mode": "manual",
+    "metric_windows_hours": [
+      24,
+      72,
+      168
+    ]
+  },
+  "attribution": {
+    "subject_code_required": true,
+    "gmail_plus_alias": true,
+    "allow_inferred_source": false
   },
   "connectors": {
     "email": {
@@ -24,9 +64,14 @@
       "digest_recipient_id": "SET_LOCALLY",
       "tables": {
         "jobs": "SET_LOCALLY",
+        "campaigns": "SET_LOCALLY",
+        "content_variants": "SET_LOCALLY",
+        "publications": "SET_LOCALLY",
+        "metric_snapshots": "SET_LOCALLY",
+        "attribution_codes": "SET_LOCALLY",
         "candidates": "SET_LOCALLY",
-        "interviews_offers": "SET_LOCALLY",
-        "content_performance": "SET_LOCALLY",
+        "applications": "SET_LOCALLY",
+        "application_stage_history": "SET_LOCALLY",
         "mail_log": "SET_LOCALLY",
         "automation_log": "SET_LOCALLY"
       }
@@ -66,11 +111,11 @@
   "privacy": {
     "retention_days": 180,
     "authorized_reviewers": [],
-    "store_resume_attachments_in_feishu": true,
+    "store_resume_attachments_in_feishu": false,
     "redact_digest_contact_details": true
   },
   "controls": {
-    "auto_publish_xiaohongshu": false,
+    "auto_publish_social_media": false,
     "auto_reject_candidate": false,
     "auto_invite_interview": false,
     "auto_send_offer": false,

@@ -1,7 +1,7 @@
 {
   "name": "chubby-recruitment",
   "interface": {
-    "displayName": "Chubby｜招聘自动化"
+    "displayName": "Chubby｜社交招聘增长引擎"
   },
   "plugins": [
     {

@@ -2,7 +2,7 @@
 
 ## North-star outcome
 
-Optimize for qualified candidates who can enter a structured interview, not post count, likes, raw applications, or AI scores.
+Optimize for qualified candidates who can enter a structured interview, not post count, likes, raw applications, or AI scores. Track `campaign -> publication -> attribution -> application -> qualified candidate` as one chain.
 
 ## Job gates
 
@@ -16,7 +16,15 @@ Optimize for qualified candidates who can enter a structured interview, not post
 
 The workflow may read status but must never change it.
 
-## Xiaohongshu content structure
+## Public company and compensation facts
+
+- The approved public brand for this installation is read from `company.public_name`; the current default is `诺特兰德集团`.
+- The legal employing entity must come from the current job source. Never infer it from the public brand.
+- Public salary must come verbatim from the job's approved public salary field and carry an approval reference.
+- Do not divide employer cost, copy a neighboring role, convert annual budget, or ask the model to estimate a range.
+- Missing salary range, explicit approval, or approval reference blocks `ready_to_publish`.
+
+## Campaign and channel content
 
 Prepare content from job outcomes, not by pasting a formal JD.
 
@@ -28,13 +36,22 @@ Each post should include:
 4. evidence or portfolio required;
 5. who is not suitable;
 6. location and work mode;
-7. the configured public-disclosure policy;
+7. the approved company name and salary range;
 8. application email;
 9. subject convention;
 10. job ID and attribution code;
 11. a short candidate-data notice.
 
-Useful angles are project opportunity, first-stage outcomes, and case challenge.
+Useful angles are project opportunity, first-stage outcomes, and case challenge. Adapt each approved fact set to the channel:
+
+- Xiaohongshu: scene-led image post and card script;
+- WeChat groups or Moments: concise referral copy and clear forwarding reason;
+- WeChat Channels, Douyin, or Bilibili: spoken script and shot list;
+- Zhihu, Maimai, or LinkedIn: professional context, role impact, and evidence standard.
+
+Every Campaign needs an explicit recruitment cycle ID. Every content variant needs a stable ID, channel-native asset script, and human approval bound to its content SHA-256. Every publication needs a stable publication ID, attribution code, manual status, and real URL after publication.
+
+Before `ready_to_publish`, retain a human approval record tied to the current job version, salary approval reference, and exact content fingerprint. The local hash detects source drift but does not authenticate Feishu; live connector readback supplies that trust boundary.
 
 ## Mail processing and deduplication
 
@@ -52,16 +69,17 @@ Atomically claim each message before downloading or parsing. Keep the returned f
 
 ## Matching output
 
-When the explicit target job is missing or unsuitable, return up to three jobs with:
+When the explicit target job is missing or unsuitable, return up to three jobs from the current eligible-job readback with:
 
 - stable job ID;
+- current job version and gate;
 - match confidence;
-- matched hard requirements;
-- missing or conflicting requirements;
-- evidence from the resume or portfolio;
+- matched hard-requirement IDs;
+- missing or conflicting requirement IDs;
+- evidence reference IDs pointing to authorized source records;
 - explanation for lower-ranked alternatives.
 
-Rank active jobs first. Conditional jobs must be labeled talent mapping. Never turn a frozen or closed job into an active match.
+Rank active jobs first. Conditional jobs must be labeled talent mapping. Never turn a frozen or closed job into an active match. Validate the assessment against the current eligible-job snapshot; a stale version or mismatched formal/talent-mapping mode blocks the result.
 
 ## Screening rubric
 
@@ -85,6 +103,8 @@ Recommendations:
 
 Do not output `reject`, `hire`, `offer`, or automatic interview actions.
 
+The validated assessment is a structured decision index, not a narrative. It may contain only stable requirement/evidence reference IDs and the approved evidence, red-flag, and missing-material codes defined by `validate_assessment.py`. Keep original resume excerpts in the authorized source system, never in the assessment or digest payload.
+
 A high score does not override missing work samples or conflicting facts. When information is incomplete, prefer `request_more_info` over forcing a low score.
 
 ## Protected attributes
@@ -95,7 +115,7 @@ Contact details may be used only for authorized recruiting communication, not sc
 
 ## Channel metrics
 
-Use only real values:
+Use only real, non-negative, finite values:
 
 - publications;
 - views or reads when available;
@@ -105,7 +125,11 @@ Use only real values:
 - qualified candidates;
 - application and qualified-candidate conversion when the denominator exists.
 
-When reads are unavailable, do not calculate click-through or conversion. Display unavailable.
+When reads or views are unavailable, do not calculate click-through or application conversion. Display unavailable. Do not treat likes as clicks or exposures.
+
+## Digest privacy model
+
+The digest may contain candidate aliases, stable job/publication IDs, numbers, and approved enum codes only. Candidate evidence, risks, interview suggestions, and anomalies must be mapped to the fixed labels in `render_digest.py`. Never send resume excerpts, locations, names, addresses, account handles, or other candidate free text to the digest renderer.
 
 ## Human approval points
 

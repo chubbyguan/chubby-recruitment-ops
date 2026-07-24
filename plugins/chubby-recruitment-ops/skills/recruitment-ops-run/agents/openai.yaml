@@ -1,4 +1,4 @@
 interface:
-  display_name: "招聘自动化运营"
-  short_description: "生成招聘内容、处理简历、匹配评分、同步飞书并输出招聘日报"
-  default_prompt: "使用 $recruitment-ops-run 运行一次招聘闭环并汇报结果。"
+  display_name: "社交招聘闭环运营"
+  short_description: "运行渠道 Campaign、处理简历、匹配评分、同步飞书并输出日报"
+  default_prompt: "使用 $recruitment-ops-run 运行一次社交招聘闭环并汇报真实渠道与候选结果。"

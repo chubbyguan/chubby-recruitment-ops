@@ -16,14 +16,19 @@ from typing import Any
 PLACEHOLDERS = {"", "SET_LOCALLY", "replace-with-department-id", "jobs@example.com"}
 REQUIRED_TABLES = {
     "jobs",
+    "campaigns",
+    "content_variants",
+    "publications",
+    "metric_snapshots",
+    "attribution_codes",
     "candidates",
-    "interviews_offers",
-    "content_performance",
+    "applications",
+    "application_stage_history",
     "mail_log",
     "automation_log",
 }
 REQUIRED_CONTROLS = {
-    "auto_publish_xiaohongshu",
+    "auto_publish_social_media",
     "auto_reject_candidate",
     "auto_invite_interview",
     "auto_send_offer",
@@ -33,12 +38,33 @@ EXPECTED_SCHEMA: dict[str, Any] = {
     "schema_version": None,
     "department_id": None,
     "timezone": None,
+    "company": {
+        "public_name": None,
+        "disclose_public_name": None,
+        "legal_entity_source": None,
+    },
     "public_content": {
         "application_email": None,
-        "disclose_company_name": None,
-        "disclose_salary": None,
-        "xiaohongshu_publish_mode": None,
         "privacy_notice": None,
+    },
+    "compensation": {
+        "source": None,
+        "public_range_field": None,
+        "approval_field": None,
+        "approval_reference_field": None,
+        "require_approved_range": None,
+        "fallback": None,
+    },
+    "channels": {
+        "enabled": None,
+        "supported": None,
+        "publish_mode": None,
+        "metric_windows_hours": None,
+    },
+    "attribution": {
+        "subject_code_required": None,
+        "gmail_plus_alias": None,
+        "allow_inferred_source": None,
     },
     "connectors": {
         "email": {
@@ -135,6 +161,10 @@ def as_object(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def is_placeholder(value: Any) -> bool:
+    return not isinstance(value, str) or value in PLACEHOLDERS
+
+
 def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
     validate_shape(config, EXPECTED_SCHEMA, "", issues)
@@ -145,20 +175,114 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
     connectors = as_object(config.get("connectors"))
     email_config = as_object(connectors.get("email"))
     email = email_config.get("account", "")
-    if email in PLACEHOLDERS or "@" not in email:
+    if (
+        not isinstance(email, str)
+        or email in PLACEHOLDERS
+        or "@" not in email
+    ):
         issues.append(issue("error", "email", "configure a dedicated recruitment email"))
 
     public_content = as_object(config.get("public_content"))
     public_email = public_content.get("application_email", "")
-    if public_email != email:
+    if not isinstance(public_email, str) or public_email != email:
         issues.append(
             issue("error", "email-mismatch", "public application email must match the bound mailbox")
         )
 
-    publish_mode = public_content.get("xiaohongshu_publish_mode")
+    if config.get("schema_version") != "2.0":
+        issues.append(issue("error", "schema-version", "config schema_version must be 2.0"))
+
+    company = as_object(config.get("company"))
+    raw_company_name = company.get("public_name", "")
+    company_name = raw_company_name.strip() if isinstance(raw_company_name, str) else ""
+    if not company_name or company_name in PLACEHOLDERS:
+        issues.append(issue("error", "company-name", "configure the approved public company name"))
+    if company.get("disclose_public_name") is not True:
+        issues.append(
+            issue("error", "company-disclosure", "company name disclosure must be explicitly true")
+        )
+    if company.get("legal_entity_source") != "job_source":
+        issues.append(
+            issue("error", "legal-entity-source", "legal employing entity must come from job_source")
+        )
+
+    compensation = as_object(config.get("compensation"))
+    if compensation.get("source") != "job_source":
+        issues.append(issue("error", "salary-source", "salary must come from job_source"))
+    if compensation.get("require_approved_range") is not True:
+        issues.append(
+            issue("error", "salary-approval", "approved public salary range must be required")
+        )
+    if compensation.get("fallback") != "block_publication":
+        issues.append(
+            issue("error", "salary-fallback", "missing salary approval must block publication")
+        )
+    for key in ("public_range_field", "approval_field", "approval_reference_field"):
+        value = compensation.get(key, "")
+        if not isinstance(value, str) or not value.strip():
+            issues.append(issue("error", "salary-field", f"configure compensation.{key}"))
+
+    channels = as_object(config.get("channels"))
+    enabled_channels = channels.get("enabled", [])
+    supported_channels = channels.get("supported", [])
+    valid_enabled = (
+        isinstance(enabled_channels, list)
+        and bool(enabled_channels)
+        and all(
+            isinstance(channel, str) and bool(channel.strip())
+            for channel in enabled_channels
+        )
+    )
+    valid_supported = (
+        isinstance(supported_channels, list)
+        and bool(supported_channels)
+        and all(
+            isinstance(channel, str) and bool(channel.strip())
+            for channel in supported_channels
+        )
+    )
+    if not valid_enabled:
+        issues.append(issue("error", "channels", "configure at least one enabled channel"))
+    if not valid_supported:
+        issues.append(issue("error", "channels", "supported channels must be a non-empty list"))
+    elif valid_enabled:
+        unsupported = sorted(set(enabled_channels) - set(supported_channels))
+        if unsupported:
+            issues.append(
+                issue("error", "channels", f"enabled channels are unsupported: {', '.join(unsupported)}")
+            )
+    publish_mode = channels.get("publish_mode")
     if publish_mode != "manual":
         issues.append(
-            issue("error", "xiaohongshu-mode", "Xiaohongshu publishing must remain manual")
+            issue("error", "social-publish-mode", "social publishing must remain manual")
+        )
+    windows = channels.get("metric_windows_hours", [])
+    if (
+        not isinstance(windows, list)
+        or not windows
+        or any(type(window) is not int or window <= 0 for window in windows)
+    ):
+        issues.append(
+            issue("error", "metric-windows", "metric windows must contain positive hours")
+        )
+
+    attribution = as_object(config.get("attribution"))
+    if attribution.get("subject_code_required") is not True:
+        issues.append(issue("error", "attribution", "subject attribution codes are required"))
+    if attribution.get("allow_inferred_source") is not False:
+        issues.append(
+            issue(
+                "error",
+                "attribution",
+                "inferred attribution must be disabled by default; record unknown on conflicts",
+            )
+        )
+    if (
+        attribution.get("gmail_plus_alias") is True
+        and email_config.get("provider") != "gmail"
+    ):
+        issues.append(
+            issue("error", "gmail-alias", "Gmail Plus Alias requires provider=gmail")
         )
 
     controls = as_object(config.get("controls"))
@@ -168,19 +292,31 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
 
     privacy = as_object(config.get("privacy"))
     retention_days = privacy.get("retention_days")
-    if not isinstance(retention_days, int) or retention_days <= 0:
+    if type(retention_days) is not int or retention_days <= 0:
         issues.append(issue("error", "retention", "set a positive retention_days value"))
 
     reviewers = privacy.get("authorized_reviewers", [])
     if not isinstance(reviewers, list) or not reviewers:
         issues.append(
-            issue("warning", "reviewers", "authorized_reviewers is empty; confirm access ownership")
+            issue("error", "reviewers", "authorized_reviewers must contain at least one reviewer")
+        )
+    elif any(not isinstance(reviewer, str) or not reviewer.strip() for reviewer in reviewers):
+        issues.append(
+            issue("error", "reviewers", "authorized_reviewers must contain non-empty strings")
+        )
+    if privacy.get("store_resume_attachments_in_feishu") is not False:
+        issues.append(
+            issue(
+                "warning",
+                "attachment-storage",
+                "resume attachment storage is enabled; confirm necessity and access controls",
+            )
         )
 
     feishu = as_object(connectors.get("feishu"))
-    if feishu.get("base_app_token") in PLACEHOLDERS:
+    if is_placeholder(feishu.get("base_app_token")):
         issues.append(issue("error", "feishu-base", "map the department Feishu Base"))
-    if feishu.get("digest_recipient_id") in PLACEHOLDERS:
+    if is_placeholder(feishu.get("digest_recipient_id")):
         issues.append(issue("error", "digest-recipient", "configure the Feishu digest recipient"))
 
     tables = as_object(feishu.get("tables"))
@@ -190,12 +326,16 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
             issue("error", "table-map", f"missing logical table mappings: {', '.join(missing_tables)}")
         )
     for table_name in sorted(REQUIRED_TABLES):
-        if tables.get(table_name) in PLACEHOLDERS:
+        if is_placeholder(tables.get(table_name)):
             issues.append(issue("error", "table-map", f"map Feishu table: {table_name}"))
 
     schedule = as_object(config.get("schedule"))
     hours = schedule.get("inbox_hours", [])
-    if not hours or any(not isinstance(hour, int) or not 0 <= hour <= 23 for hour in hours):
+    if (
+        not isinstance(hours, list)
+        or not hours
+        or any(type(hour) is not int or not 0 <= hour <= 23 for hour in hours)
+    ):
         issues.append(issue("error", "schedule", "inbox_hours must contain valid hours"))
     if schedule.get("enabled"):
         issues.append(
@@ -206,10 +346,20 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
             )
         )
 
-    adapters = {
+    adapter_values = (
         email_config.get("adapter", "auto"),
         feishu.get("adapter", "auto"),
-    }
+    )
+    valid_adapters = [
+        adapter
+        for adapter in adapter_values
+        if isinstance(adapter, str) and adapter.strip()
+    ]
+    if len(valid_adapters) != len(adapter_values):
+        issues.append(
+            issue("error", "adapter", "connector adapters must be non-empty strings")
+        )
+    adapters = set(valid_adapters)
     if "lark-cli" in adapters and not shutil.which("lark-cli"):
         issues.append(issue("error", "lark-cli", "configured lark-cli is not installed"))
     elif shutil.which("lark-cli") is None:
@@ -236,7 +386,13 @@ def git_ignore_status(workspace: Path, config_path: Path) -> dict[str, str] | No
     )
     if result.returncode == 0:
         return None
-    if (workspace / ".git").exists():
+    repository_probe = subprocess.run(
+        ["git", "-C", str(workspace), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if repository_probe.returncode == 0:
         return issue("error", "git-ignore", f"local config is not ignored: {config_path}")
     return issue("warning", "git-repo", "workspace is not a Git repository; keep local config private")
 

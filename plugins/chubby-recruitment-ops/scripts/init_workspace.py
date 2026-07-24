@@ -24,6 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--email", required=True)
     parser.add_argument("--timezone", default="Asia/Shanghai")
     parser.add_argument("--department-id", default="replace-with-department-id")
+    parser.add_argument("--company-name", default="诺特兰德集团")
     parser.add_argument(
         "--force",
         action="store_true",
@@ -68,13 +69,26 @@ def initialize(args: argparse.Namespace) -> dict[str, object]:
     config = json.loads(template_path.read_text(encoding="utf-8"))
     config["department_id"] = args.department_id
     config["timezone"] = args.timezone
+    company_name = str(
+        getattr(args, "company_name", config["company"]["public_name"])
+    ).strip()
+    if not company_name:
+        raise ValueError("company name is required for public recruitment content")
+    config["company"]["public_name"] = company_name
     config["public_content"]["application_email"] = email
     config["connectors"]["email"]["account"] = email
 
     workspace.mkdir(parents=True, exist_ok=True)
     operations_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(operations_dir, 0o700)
-    for directory in ("drafts", "reports", "fixtures", "attachments"):
+    for directory in (
+        "campaigns",
+        "drafts",
+        "publications",
+        "reports",
+        "fixtures",
+        "attachments",
+    ):
         local_directory = operations_dir / directory
         local_directory.mkdir(exist_ok=True, mode=0o700)
         os.chmod(local_directory, 0o700)
@@ -94,6 +108,8 @@ def initialize(args: argparse.Namespace) -> dict[str, object]:
     for source_name, destination_name in (
         ("job-template.md", "job-template.md"),
         ("privacy-notice-template.md", "privacy-notice-template.md"),
+        ("social-campaign-template.md", "social-campaign-template.md"),
+        ("channel-playbook.md", "channel-playbook.md"),
     ):
         destination = operations_dir / destination_name
         if not destination.exists():
@@ -107,10 +123,10 @@ def initialize(args: argparse.Namespace) -> dict[str, object]:
         "state_db": str(state_db),
         "schedule_enabled": False,
         "next_steps": [
-            "map the department job source and Feishu Base tables",
+            "map the department job, salary approval source, and Feishu Base tables",
             "authorize Gmail and Feishu adapters",
             "run doctor.py",
-            "complete synthetic end-to-end acceptance",
+            "complete campaign and synthetic end-to-end acceptance",
         ],
     }
 
