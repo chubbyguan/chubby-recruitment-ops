@@ -1,0 +1,36 @@
+{
+  "status": "partial",
+  "department_id": null,
+  "tested_at": null,
+  "gmail": {
+    "account_verified": false,
+    "synthetic_message_id": null,
+    "attachment_hash": null,
+    "attachment_readback": false
+  },
+  "assessment": {
+    "top_three_generated": false,
+    "validation_passed": false,
+    "protected_attribute_probe_blocked": false
+  },
+  "feishu_base": {
+    "candidate_record_id": null,
+    "candidate_readback": false,
+    "mail_log_record_id": null,
+    "run_log_record_id": null
+  },
+  "idempotency": {
+    "duplicate_replay_completed": false,
+    "second_candidate_created": null
+  },
+  "feishu_digest": {
+    "message_id": null,
+    "message_readback": false,
+    "pii_redaction_checked": false
+  },
+  "schedule": {
+    "activation_approved": false,
+    "enabled": false
+  },
+  "production_ready": false
+}

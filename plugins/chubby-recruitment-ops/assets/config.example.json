@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "department_id": "replace-with-department-id",
+  "timezone": "Asia/Shanghai",
+  "public_content": {
+    "application_email": "jobs@example.com",
+    "disclose_company_name": false,
+    "disclose_salary": false,
+    "xiaohongshu_publish_mode": "manual",
+    "privacy_notice": "投递材料仅用于招聘评估；如只同意用于本岗位，请在邮件中注明。"
+  },
+  "connectors": {
+    "email": {
+      "provider": "gmail",
+      "adapter": "auto",
+      "account": "jobs@example.com",
+      "inbox_query": "has:attachment newer_than:30d",
+      "processed_label": "recruitment/processed"
+    },
+    "feishu": {
+      "adapter": "auto",
+      "base_app_token": "SET_LOCALLY",
+      "digest_recipient_type": "open_id",
+      "digest_recipient_id": "SET_LOCALLY",
+      "tables": {
+        "jobs": "SET_LOCALLY",
+        "candidates": "SET_LOCALLY",
+        "interviews_offers": "SET_LOCALLY",
+        "content_performance": "SET_LOCALLY",
+        "mail_log": "SET_LOCALLY",
+        "automation_log": "SET_LOCALLY"
+      }
+    }
+  },
+  "job_policy": {
+    "source": "feishu_base",
+    "open_statuses": [
+      "open",
+      "招聘中"
+    ],
+    "conditional_statuses": [
+      "conditional",
+      "人才寻访",
+      "条件岗"
+    ],
+    "blocked_statuses": [
+      "frozen",
+      "closed",
+      "冻结",
+      "关闭"
+    ]
+  },
+  "schedule": {
+    "inbox_hours": [
+      9,
+      11,
+      13,
+      15,
+      17,
+      19,
+      21
+    ],
+    "digest_hour": 19,
+    "enabled": false
+  },
+  "privacy": {
+    "retention_days": 180,
+    "authorized_reviewers": [],
+    "store_resume_attachments_in_feishu": true,
+    "redact_digest_contact_details": true
+  },
+  "controls": {
+    "auto_publish_xiaohongshu": false,
+    "auto_reject_candidate": false,
+    "auto_invite_interview": false,
+    "auto_send_offer": false,
+    "auto_change_job_status": false
+  }
+}

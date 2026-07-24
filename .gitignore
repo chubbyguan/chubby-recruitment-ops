@@ -1,0 +1,16 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.recruitment-ops/
+*.sqlite
+*.sqlite3
+*.db
+__pycache__/
+*.pyc
+.pytest_cache/
+resumes/
+candidates/
+attachments/
+private-config/
+local-test-output/

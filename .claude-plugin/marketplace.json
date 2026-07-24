@@ -1,0 +1,21 @@
+{
+  "name": "chubby-recruitment",
+  "owner": {
+    "name": "Chubby"
+  },
+  "description": "面向业务部门的招聘自动化插件市场。",
+  "plugins": [
+    {
+      "name": "chubby-recruitment-ops",
+      "source": "./plugins/chubby-recruitment-ops",
+      "description": "从岗位 JD 和小红书招聘内容，到 Gmail 简历处理、岗位匹配、候选人初筛、飞书 Base 入库和招聘日报。",
+      "category": "productivity",
+      "tags": [
+        "recruitment",
+        "xiaohongshu",
+        "gmail",
+        "feishu"
+      ]
+    }
+  ]
+}

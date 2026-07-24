@@ -1,0 +1,50 @@
+{
+  "date": "2099-01-01",
+  "content": {
+    "published_today": 0,
+    "active_posts": 0,
+    "reads": null,
+    "likes": null,
+    "saves": null,
+    "comments": null,
+    "best_post": null
+  },
+  "inbox": {
+    "new_messages": 0,
+    "new_candidates": 0,
+    "duplicates": 0,
+    "failures": 0
+  },
+  "quality": {
+    "hr_screen": 0,
+    "request_more_info": 0,
+    "manual_review": 0,
+    "talent_pool": 0,
+    "by_job": {}
+  },
+  "candidates": [
+    {
+      "alias": "CAND-001",
+      "job_id": "DEMO-01",
+      "score": 69,
+      "pii_reviewed": true,
+      "redact_names": [
+        "虚构候选人"
+      ],
+      "evidence": "已完成作品链路，但缺少可核验数据。",
+      "risk": "个人贡献仍需人工核验。"
+    }
+  ],
+  "interviews": {
+    "suggestion": "建议先补材料",
+    "earliest_follow_up": "两个工作日内",
+    "participants": "HR 与业务复核人"
+  },
+  "anomalies": [
+    {
+      "summary": "今日无新增异常",
+      "pii_reviewed": true,
+      "redact_names": []
+    }
+  ]
+}

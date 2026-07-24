@@ -1,0 +1,11 @@
+{
+  "name": "chubby-recruitment-ops",
+  "version": "0.1.0",
+  "description": "将岗位 JD、小红书招聘内容、Gmail 简历收件、岗位匹配、候选人初筛、飞书 Base 入库和招聘日报串成可审计的招聘闭环。",
+  "author": {
+    "name": "Chubby",
+    "url": "https://github.com/chubbyguan"
+  },
+  "homepage": "https://github.com/chubbyguan/chubby-recruitment-ops",
+  "repository": "https://github.com/chubbyguan/chubby-recruitment-ops"
+}
