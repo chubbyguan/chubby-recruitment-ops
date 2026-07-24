@@ -1,6 +1,6 @@
 # 社交招聘增长引擎｜同事安装与实操指南
 
-版本：0.2.1
+版本：0.2.2
 
 适用工具：Codex、Claude Code
 
@@ -40,22 +40,20 @@
 
 - Python 3.9 或更高版本；
 - Codex 或 Claude Code；
-- GitHub CLI `gh`；
+- Git；
 - 飞书 `lark-cli`，或公司批准的其他飞书连接器。
 
-### 3.2 GitHub 权限
+### 3.2 GitHub 访问
 
-仓库当前是私有仓库。同事必须拥有 `chubbyguan/chubby-recruitment-ops` 的读取权限。
+仓库已经公开，无需申请仓库权限。
 
 检查：
 
 ```bash
-gh auth status
-gh auth setup-git
-gh repo view chubbyguan/chubby-recruitment-ops
+git ls-remote https://github.com/chubbyguan/chubby-recruitment-ops.git HEAD
 ```
 
-第三条命令失败时，先找仓库管理员开权限。继续运行插件命令没有意义。
+命令失败时，先处理 GitHub 网络或代理问题。继续运行插件命令没有意义。
 
 ### 3.3 部门业务信息
 
@@ -158,16 +156,16 @@ claude plugin details chubby-recruitment-ops@chubby-recruitment
 
 ## 六、远程安装失败的处理
 
-先运行：
+先确认网络可以访问公开仓库：
 
 ```bash
-gh auth setup-git
+git ls-remote https://github.com/chubbyguan/chubby-recruitment-ops.git HEAD
 ```
 
-仍然失败时：
+能访问但 marketplace 安装仍失败时：
 
 ```bash
-gh repo clone chubbyguan/chubby-recruitment-ops
+git clone https://github.com/chubbyguan/chubby-recruitment-ops.git
 ```
 
 Codex 本地安装：
@@ -420,16 +418,14 @@ Claude Code：
 
 ## 十三、常见故障
 
-### GitHub 权限失败
+### GitHub 访问失败
 
-现象：marketplace 拉取失败、仓库不可见。
+现象：marketplace 拉取失败或连接 GitHub 超时。
 
 处理：
 
 ```bash
-gh auth status
-gh auth setup-git
-gh repo view chubbyguan/chubby-recruitment-ops
+git ls-remote https://github.com/chubbyguan/chubby-recruitment-ops.git HEAD
 ```
 
 ### 安装后找不到 Skill
@@ -505,7 +501,7 @@ claude plugin update chubby-recruitment-ops@chubby-recruitment
 
 同事开始使用前，至少确认：
 
-- [ ] 已获得 GitHub 私有仓库权限；
+- [ ] 可以访问公开 GitHub 仓库；
 - [ ] 插件版本可见；
 - [ ] 三个 Skill 可调用；
 - [ ] Gmail 账号与配置一致；

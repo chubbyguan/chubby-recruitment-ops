@@ -4,7 +4,7 @@
 
 同时支持 Codex 和 Claude Code。插件负责准备内容、处理数据和给出建议，不自动发布社交媒体，也不替人做淘汰、约面或录用决定。
 
-当前版本：`0.2.1`
+当前版本：`0.2.2`
 
 ## 适合谁
 
@@ -46,7 +46,7 @@
 
 - Python 3.9 或更高版本；
 - Codex 或 Claude Code；
-- GitHub 私有仓库 `chubbyguan/chubby-recruitment-ops` 的读取权限；
+- 能访问公开 GitHub 仓库；
 - 一个部门专用招聘邮箱；
 - Gmail 读取连接器；
 - 飞书 `lark-cli` 或团队批准的飞书连接器；
@@ -54,15 +54,13 @@
 - 招聘日报接收人；
 - 候选人数据保留期和授权复核人。
 
-先确认 GitHub 权限：
+仓库公开，无需申请仓库权限。网络不稳定时可先检查：
 
 ```bash
-gh auth status
-gh auth setup-git
-gh repo view chubbyguan/chubby-recruitment-ops
+git ls-remote https://github.com/chubbyguan/chubby-recruitment-ops.git HEAD
 ```
 
-如果第三条命令失败，插件安装也会失败。先让仓库管理员给同事开权限，不要反复重试安装命令。
+如果该命令失败，先处理 GitHub 网络或代理问题，再安装插件。
 
 ## Codex：5 分钟安装
 
@@ -106,18 +104,18 @@ claude plugin list
 先运行安装自检，不写业务数据、不创建定时任务。告诉我缺少哪些账号、权限和配置。
 ```
 
-## 私有仓库安装失败时
+## 远程安装失败时
 
-优先重新配置 Git 凭据：
+先检查能否访问公开仓库：
 
 ```bash
-gh auth setup-git
+git ls-remote https://github.com/chubbyguan/chubby-recruitment-ops.git HEAD
 ```
 
-仍然失败时，使用本地克隆：
+能访问但 marketplace 安装仍失败时，使用本地克隆：
 
 ```bash
-gh repo clone chubbyguan/chubby-recruitment-ops
+git clone https://github.com/chubbyguan/chubby-recruitment-ops.git
 ```
 
 Codex：
@@ -304,11 +302,12 @@ claude plugin validate . --strict
 
 ## 文档
 
-- [飞书版｜同事安装与实操指南](https://sbtbiotech.feishu.cn/docx/GXC3djshnoO7rPxZnwXc3xWonLc)
 - [同事安装与实操指南](docs/colleague-install-and-operations-guide.zh-CN.md)
 - [开源招聘项目对比与升级建议](research/open-source-recruitment-upgrade-analysis-2026-07-24.md)
 - [社交招聘增长引擎产品蓝图](research/social-recruiting-growth-engine-blueprint-2026-07-24.md)
 
-## 仓库状态
+## 开源与安全
 
-本仓库当前为私有仓库。同事必须获得 GitHub 读取权限才能使用远程安装；如果希望公司所有成员无需逐人授权安装，需要将仓库迁移到组织内部可见仓库或配置企业级 marketplace。
+本项目采用 [MIT License](LICENSE)。欢迎通过 Issue 或 Pull Request 提交问题与改进。
+
+不要在 Issue、PR、日志或测试样例中提交真实简历、候选人联系方式、邮箱授权信息、飞书 Token、Base ID、聊天 ID 或其他个人信息。安全问题请按 [安全政策](SECURITY.md) 私下报告。
