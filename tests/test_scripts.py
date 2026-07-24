@@ -900,6 +900,23 @@ class PackageTests(unittest.TestCase):
             self.assertTrue(any(".env.production" in error for error in errors))
             self.assertTrue(any("candidate.csv" in error for error in errors))
 
+    def test_internal_feishu_document_url_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            copied_repo = Path(temp_dir) / "repo"
+            shutil.copytree(REPO_ROOT, copied_repo, ignore=shutil.ignore_patterns(".git"))
+            (copied_repo / "internal-link.md").write_text(
+                "https://"
+                + "tenant"
+                + ".feishu.cn"
+                + "/docx/"
+                + "Abcdef1234567890\n",
+                encoding="utf-8",
+            )
+            errors = validate(copied_repo)
+            self.assertTrue(
+                any("internal Feishu document URL" in error for error in errors)
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

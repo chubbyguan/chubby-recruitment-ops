@@ -16,6 +16,10 @@ SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
 FEISHU_IDENTIFIER = re.compile(
     r"\b(?:tbl|oc_|om_|ou_|bascn)[A-Za-z0-9_-]{10,}\b"
 )
+FEISHU_DOCUMENT_URL = re.compile(
+    r"https://[^\s/]+(?:\.feishu\.cn|\.larksuite\.com)"
+    r"/(?:docx|wiki)/[A-Za-z0-9]+"
+)
 SECRET_TOKEN = re.compile(
     r"(?:"
     r"gh[opsu]_[A-Za-z0-9]{20,}|"
@@ -43,7 +47,7 @@ FORBIDDEN_ARTIFACT_SUFFIXES = {
     ".sqlite3",
 }
 ALLOWED_TEXT_SUFFIXES = {".md", ".json", ".yaml", ".yml", ".py", ".txt"}
-ALLOWED_SPECIAL_FILES = {".gitignore"}
+ALLOWED_SPECIAL_FILES = {".gitignore", "LICENSE"}
 
 
 def load_json(path: Path, errors: list[str]) -> dict[str, Any]:
@@ -122,6 +126,8 @@ def validate(repo_root: Path) -> list[str]:
     repo_root = repo_root.resolve()
     plugin_root = repo_root / "plugins" / "chubby-recruitment-ops"
     required_files = [
+        repo_root / "LICENSE",
+        repo_root / "SECURITY.md",
         repo_root / ".agents" / "plugins" / "marketplace.json",
         repo_root / ".claude-plugin" / "marketplace.json",
         plugin_root / ".codex-plugin" / "plugin.json",
@@ -221,6 +227,8 @@ def validate(repo_root: Path) -> list[str]:
             errors.append(f"{path}: possible secret token")
         if FEISHU_IDENTIFIER.search(text):
             errors.append(f"{path}: possible hard-coded Feishu identifier")
+        if FEISHU_DOCUMENT_URL.search(text):
+            errors.append(f"{path}: internal Feishu document URL is not allowed")
         for email in EMAIL.findall(text):
             if not email.lower().endswith("@" + ALLOWED_EXAMPLE_DOMAIN):
                 errors.append(f"{path}: non-example email found: {email}")
