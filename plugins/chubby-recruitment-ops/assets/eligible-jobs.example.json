@@ -1,0 +1,16 @@
+{
+  "source_revision": "DEMO-JOBS-REV-01",
+  "source_readback_at": "2099-01-01T09:00:00+08:00",
+  "jobs": [
+    {
+      "job_id": "DEMO-VIDEO-01",
+      "job_version": "DEMO-V1",
+      "gate": "open"
+    },
+    {
+      "job_id": "DEMO-CONTENT-01",
+      "job_version": "DEMO-V1",
+      "gate": "open"
+    }
+  ]
+}

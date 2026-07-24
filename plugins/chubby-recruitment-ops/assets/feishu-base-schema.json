@@ -1,8 +1,9 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
+  "migration_policy": "保留现有候选人主表；旧内容表现表迁移为 publications 与 metric_snapshots，不自动删除旧表。",
   "tables": {
     "jobs": {
-      "purpose": "岗位和编制唯一主数据",
+      "purpose": "岗位、编制、公开公司与薪资口径的唯一主数据",
       "required_fields": [
         "岗位ID",
         "岗位名称",
@@ -15,6 +16,15 @@
         "办公方式",
         "招聘Owner",
         "业务复核人",
+        "源版本",
+        "源修改时间",
+        "公开公司名称",
+        "招聘法律主体",
+        "公开薪资范围",
+        "薪资公开已批准",
+        "薪资审批记录",
+        "薪资审批人",
+        "薪资审批时间",
         "30天结果",
         "60天结果",
         "90天结果",
@@ -24,64 +34,140 @@
       ],
       "stable_key": "岗位ID"
     },
+    "campaigns": {
+      "purpose": "一次岗位招聘 Campaign 的目标、版本和状态",
+      "required_fields": [
+        "CampaignID",
+        "招聘批次ID",
+        "岗位ID",
+        "JD版本",
+        "Campaign状态",
+        "目标候选画像",
+        "目标合格候选数",
+        "开始时间",
+        "结束时间",
+        "Owner"
+      ],
+      "stable_key": "CampaignID"
+    },
+    "content_variants": {
+      "purpose": "跨渠道内容母版、角度和审批事实",
+      "required_fields": [
+        "内容版本ID",
+        "CampaignID",
+        "内容角度",
+        "标题",
+        "正文",
+        "素材脚本",
+        "事实源版本",
+        "内容SHA256",
+        "审批状态",
+        "审批记录ID",
+        "审批人"
+      ],
+      "stable_key": "内容版本ID"
+    },
+    "publications": {
+      "purpose": "每个平台的人工发布队列和真实发布事实",
+      "required_fields": [
+        "发布ID",
+        "CampaignID",
+        "内容版本ID",
+        "渠道",
+        "归因码",
+        "发布方式",
+        "发布状态",
+        "计划发布时间",
+        "实际发布时间",
+        "发布URL",
+        "发布人"
+      ],
+      "stable_key": "发布ID"
+    },
+    "metric_snapshots": {
+      "purpose": "24h、72h、7d 等真实渠道指标快照",
+      "required_fields": [
+        "指标快照ID",
+        "发布ID",
+        "采集时间",
+        "窗口小时",
+        "阅读或播放",
+        "点赞",
+        "收藏",
+        "评论",
+        "点击",
+        "归因投递",
+        "合格候选",
+        "数据来源",
+        "指标状态"
+      ],
+      "stable_key": "指标快照ID"
+    },
+    "attribution_codes": {
+      "purpose": "邮件主题码、Plus Alias 与发布记录之间的唯一映射",
+      "required_fields": [
+        "归因码",
+        "CampaignID",
+        "发布ID",
+        "渠道",
+        "投递邮箱别名",
+        "生效时间",
+        "失效时间"
+      ],
+      "stable_key": "归因码"
+    },
     "candidates": {
       "purpose": "候选人唯一主数据",
       "required_fields": [
         "候选人唯一ID",
         "姓名",
-        "候选阶段",
-        "来源渠道",
-        "邮件MessageID",
-        "附件哈希",
-        "明确投递岗位",
-        "AI匹配Top1",
-        "AI匹配Top2",
-        "AI匹配Top3",
-        "匹配置信度",
-        "初筛总分",
-        "初筛建议",
-        "初筛证据摘要",
-        "待补材料",
+        "当前主阶段",
         "人工复核状态",
         "数据保留状态",
         "简历附件"
       ],
       "stable_key": "候选人唯一ID"
     },
-    "interviews_offers": {
-      "purpose": "面试、作业、Offer 和试用期事实",
+    "applications": {
+      "purpose": "一名候选人对一个岗位的一次投递、匹配和质量判断",
       "required_fields": [
+        "投递ID",
         "候选人唯一ID",
         "岗位ID",
-        "面试轮次",
-        "面试时间",
-        "面试官",
-        "案例作业",
-        "结构化评分",
-        "人工结论",
-        "Offer状态"
+        "CampaignID",
+        "归因码",
+        "来源渠道",
+        "邮件MessageID",
+        "附件哈希",
+        "明确投递岗位",
+        "岗位版本",
+        "岗位Gate",
+        "AI匹配Top1",
+        "AI匹配Top2",
+        "AI匹配Top3",
+        "匹配置信度",
+        "初筛总分",
+        "初筛建议",
+        "证据引用ID",
+        "证据代码",
+        "风险代码",
+        "待补材料代码"
       ],
-      "stable_key": "面试记录ID"
+      "stable_key": "投递ID"
     },
-    "content_performance": {
-      "purpose": "招聘内容版本、发布和渠道事实",
+    "application_stage_history": {
+      "purpose": "候选阶段变更、人工决策和理由的审计记录",
       "required_fields": [
-        "内容ID",
-        "岗位ID",
-        "内容版本",
-        "审批状态",
-        "发布状态",
-        "发布时间",
-        "笔记URL",
-        "阅读量",
-        "点赞",
-        "收藏",
-        "评论",
-        "归因投递",
-        "有效候选",
-        "指标状态"
+        "阶段记录ID",
+        "投递ID",
+        "变更前阶段",
+        "变更后阶段",
+        "变更时间",
+        "变更人",
+        "决策理由",
+        "人工确认"
       ],
-      "stable_key": "内容ID"
+      "stable_key": "阶段记录ID"
     },
     "mail_log": {
       "purpose": "邮件处理和重试事实",
@@ -89,6 +175,7 @@
         "邮件MessageID",
         "收到时间",
         "附件哈希",
+        "识别归因码",
         "处理状态",
         "候选人唯一ID",
         "错误原因",

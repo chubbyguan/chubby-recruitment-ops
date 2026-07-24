@@ -6,18 +6,44 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
-FEISHU_IDENTIFIER = re.compile(r"\b(?:tbl|oc_|om_)[A-Za-z0-9]{10,}\b")
+FEISHU_IDENTIFIER = re.compile(
+    r"\b(?:tbl|oc_|om_|ou_|bascn)[A-Za-z0-9_-]{10,}\b"
+)
 SECRET_TOKEN = re.compile(
-    r"(?:gh[opsu]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})"
+    r"(?:"
+    r"gh[opsu]_[A-Za-z0-9]{20,}|"
+    r"sk-[A-Za-z0-9_-]{20,}|"
+    r"xox[baprs]-[A-Za-z0-9-]{20,}|"
+    r"AKIA[0-9A-Z]{16}|"
+    r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|"
+    r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"
+    r")"
 )
 EMAIL = re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}")
+PHONE = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
+IDENTITY_NUMBER = re.compile(r"(?<!\d)\d{17}[\dXx](?!\d)")
 ALLOWED_EXAMPLE_DOMAIN = "example.com"
+ALLOWED_SYNTHETIC_PII = {"13800138000", "11010519491231002X"}
+FORBIDDEN_ARTIFACT_SUFFIXES = {
+    ".db",
+    ".doc",
+    ".docx",
+    ".jpeg",
+    ".jpg",
+    ".pdf",
+    ".png",
+    ".sqlite",
+    ".sqlite3",
+}
+ALLOWED_TEXT_SUFFIXES = {".md", ".json", ".yaml", ".yml", ".py", ".txt"}
+ALLOWED_SPECIAL_FILES = {".gitignore"}
 
 
 def load_json(path: Path, errors: list[str]) -> dict[str, Any]:
@@ -60,6 +86,37 @@ def parse_skill_frontmatter(path: Path, errors: list[str]) -> dict[str, str]:
     return fields
 
 
+def package_files(repo_root: Path) -> list[Path]:
+    if (repo_root / ".git").exists():
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "ls-files",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "-z",
+            ],
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return [
+                repo_root / raw.decode("utf-8")
+                for raw in result.stdout.split(b"\0")
+                if raw
+            ]
+    return [
+        path
+        for path in repo_root.rglob("*")
+        if path.is_file()
+        and ".git" not in path.parts
+        and "__pycache__" not in path.parts
+    ]
+
+
 def validate(repo_root: Path) -> list[str]:
     errors: list[str] = []
     repo_root = repo_root.resolve()
@@ -71,10 +128,17 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / ".claude-plugin" / "plugin.json",
         plugin_root / "skills" / "recruitment-ops-setup" / "SKILL.md",
         plugin_root / "skills" / "recruitment-ops-run" / "SKILL.md",
+        plugin_root / "skills" / "social-recruitment-campaign" / "SKILL.md",
         plugin_root / "assets" / "config.example.json",
+        plugin_root / "assets" / "job.example.json",
+        plugin_root / "assets" / "eligible-jobs.example.json",
         plugin_root / "assets" / "feishu-base-schema.json",
+        plugin_root / "assets" / "social-campaign-template.md",
+        plugin_root / "assets" / "channel-playbook.md",
         plugin_root / "assets" / "digest-input.example.json",
         plugin_root / "assets" / "integration-acceptance-template.json",
+        plugin_root / "scripts" / "build_campaign.py",
+        plugin_root / "scripts" / "validate_campaign.py",
     ]
     for path in required_files:
         if not path.is_file():
@@ -131,13 +195,24 @@ def validate(repo_root: Path) -> list[str]:
     for skill_path in sorted((plugin_root / "skills").glob("*/SKILL.md")):
         parse_skill_frontmatter(skill_path, errors)
 
-    text_extensions = {".md", ".json", ".yaml", ".yml", ".py", ".txt"}
-    for path in repo_root.rglob("*"):
-        if not path.is_file() or path.suffix.lower() not in text_extensions:
+    for path in package_files(repo_root):
+        if path.is_symlink():
+            errors.append(f"{path}: symbolic links are not allowed in the plugin package")
             continue
-        if ".git" in path.parts:
+        if path.suffix.lower() in FORBIDDEN_ARTIFACT_SUFFIXES:
+            errors.append(f"{path}: binary or local-data artifact is not allowed")
             continue
-        text = path.read_text(encoding="utf-8")
+        if (
+            path.name not in ALLOWED_SPECIAL_FILES
+            and path.suffix.lower() not in ALLOWED_TEXT_SUFFIXES
+        ):
+            errors.append(f"{path}: unapproved package file type")
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            errors.append(f"{path}: cannot safely inspect text: {exc}")
+            continue
         unresolved_todo_marker = "[" + "TODO:"
         if unresolved_todo_marker in text:
             errors.append(f"{path}: unresolved scaffold TODO")
@@ -148,6 +223,12 @@ def validate(repo_root: Path) -> list[str]:
         for email in EMAIL.findall(text):
             if not email.lower().endswith("@" + ALLOWED_EXAMPLE_DOMAIN):
                 errors.append(f"{path}: non-example email found: {email}")
+        for phone in PHONE.findall(text):
+            if phone not in ALLOWED_SYNTHETIC_PII:
+                errors.append(f"{path}: possible real phone number")
+        for identity_number in IDENTITY_NUMBER.findall(text):
+            if identity_number not in ALLOWED_SYNTHETIC_PII:
+                errors.append(f"{path}: possible real identity number")
 
     return errors
 

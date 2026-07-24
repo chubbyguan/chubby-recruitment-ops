@@ -1,0 +1,4 @@
+interface:
+  display_name: "社交招聘 Campaign"
+  short_description: "把已批准岗位转成可归因、人工发布的多渠道招聘内容包"
+  default_prompt: "使用 $social-recruitment-campaign 为已批准岗位生成多渠道招聘 Campaign，并校验公司与薪资事实。"

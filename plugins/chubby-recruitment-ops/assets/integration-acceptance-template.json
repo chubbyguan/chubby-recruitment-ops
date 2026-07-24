@@ -2,6 +2,20 @@
   "status": "partial",
   "department_id": null,
   "tested_at": null,
+  "campaign": {
+    "job_version_verified": false,
+    "job_source_revision_verified": false,
+    "job_source_readback_verified": false,
+    "company_name_verified": false,
+    "salary_range_verified": false,
+    "salary_approval_reference_verified": false,
+    "unique_attribution_codes_verified": false,
+    "content_fingerprint_verified": false,
+    "content_approval_readback_verified": false,
+    "manual_publish_gate_verified": false,
+    "publication_readback_id": null,
+    "metric_snapshot_readback_id": null
+  },
   "gmail": {
     "account_verified": false,
     "synthetic_message_id": null,
@@ -16,6 +30,9 @@
   "feishu_base": {
     "candidate_record_id": null,
     "candidate_readback": false,
+    "application_record_id": null,
+    "application_readback": false,
+    "attribution_record_id": null,
     "mail_log_record_id": null,
     "run_log_record_id": null
   },
