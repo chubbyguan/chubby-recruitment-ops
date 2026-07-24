@@ -138,6 +138,7 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "assets" / "digest-input.example.json",
         plugin_root / "assets" / "integration-acceptance-template.json",
         plugin_root / "scripts" / "build_campaign.py",
+        plugin_root / "scripts" / "preflight.py",
         plugin_root / "scripts" / "validate_campaign.py",
     ]
     for path in required_files:

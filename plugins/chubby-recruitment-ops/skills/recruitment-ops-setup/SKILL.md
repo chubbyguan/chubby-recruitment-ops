@@ -14,8 +14,15 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
 ## Setup workflow
 
 1. Read [integration-contracts.md](references/integration-contracts.md) completely.
-2. Confirm the target business workspace. Do not initialize inside the plugin source directory.
-3. Collect only the configuration needed for this department:
+2. Run the bundled installation preflight before collecting business data:
+
+   ```bash
+   python3 <plugin-root>/scripts/preflight.py --runtime auto
+   ```
+
+   Fix package or runtime errors first. Treat Gmail and Feishu connector checks as pending until live read-only probes pass.
+3. Confirm the target business workspace. Do not initialize inside the plugin source directory.
+4. Collect only the configuration needed for this department:
    - dedicated recruitment email;
    - timezone;
    - job/JD source and allowed job statuses;
@@ -26,24 +33,24 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
    - enabled social channels and manual publishers;
    - retention period and authorized reviewers;
    - schedule and whether it should be activated after acceptance.
-4. Run:
+5. Run:
 
    ```bash
    python3 <plugin-root>/scripts/init_workspace.py --workspace <business-workspace> --email <recruitment-email> --company-name <approved-public-company> --timezone <timezone>
    ```
 
-5. Edit `<business-workspace>/.recruitment-ops/config.json` with real non-secret identifiers and adapter choices. Never store passwords, OAuth tokens, client secrets, access tokens, or candidate data in the config.
-6. Verify Gmail and Feishu access with read-only probes before any write.
-7. Map the department's existing Base when it already has candidate records. Do not create a parallel candidate master table.
-8. Compare the Base against `<plugin-root>/assets/feishu-base-schema.json`. Add missing auxiliary tables or fields only after showing the intended changes.
-9. Run:
+6. Edit `<business-workspace>/.recruitment-ops/config.json` with real non-secret identifiers and adapter choices. Never store passwords, OAuth tokens, client secrets, access tokens, or candidate data in the config.
+7. Verify Gmail and Feishu access with read-only probes before any write.
+8. Map the department's existing Base when it already has candidate records. Do not create a parallel candidate master table.
+9. Compare the Base against `<plugin-root>/assets/feishu-base-schema.json`. Add missing auxiliary tables or fields only after showing the intended changes.
+10. Run:
 
    ```bash
    python3 <plugin-root>/scripts/doctor.py --workspace <business-workspace>
    ```
 
-10. Fix every error. Explain warnings that require human policy decisions.
-11. Use synthetic data to perform acceptance:
+11. Fix every error. Explain warnings that require human policy decisions.
+12. Use synthetic data to perform acceptance:
     - one approved fictional job with a public salary range and approval reference;
     - one campaign with unique channel attribution codes;
     - job-source revision and live readback evidence;
@@ -56,7 +63,7 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
     - a repeated run that creates no second candidate;
     - one redacted digest sent to the configured Feishu target and read back.
     Record evidence with `<plugin-root>/assets/integration-acceptance-template.json`. Keep status `partial` and `production_ready: false` until every live readback field passes.
-12. Activate a recurring schedule only after acceptance passes and the user explicitly confirms activation. Keep every social-media publication manual.
+13. Activate a recurring schedule only after acceptance passes and the user explicitly confirms activation. Keep every social-media publication manual.
 
 ## Adapter rules
 

@@ -22,6 +22,7 @@ sys.path.insert(0, str(SCRIPTS))
 from init_workspace import initialize  # noqa: E402
 from build_campaign import build_campaign, content_hash  # noqa: E402
 from doctor import run_doctor  # noqa: E402
+from preflight import run_preflight  # noqa: E402
 from render_digest import render  # noqa: E402
 from state_store import (  # noqa: E402
     attachment_seen,
@@ -34,6 +35,42 @@ from state_store import (  # noqa: E402
 from validate_assessment import validate_assessment  # noqa: E402
 from validate_campaign import validate_campaign  # noqa: E402
 from validate_package import validate  # noqa: E402
+
+
+class PreflightTests(unittest.TestCase):
+    def test_installed_package_preflight_passes_without_live_connectors(self) -> None:
+        available = {
+            "codex": "/usr/local/bin/codex",
+            "lark-cli": "/usr/local/bin/lark-cli",
+        }
+        result = run_preflight(
+            PLUGIN_ROOT,
+            runtime="codex",
+            which=available.get,
+        )
+        self.assertTrue(result["ok"])
+        statuses = {
+            item["code"]: item["status"]
+            for item in result["checks"]
+        }
+        self.assertEqual(statuses["package"], "pass")
+        self.assertEqual(statuses["runtime"], "pass")
+        self.assertEqual(statuses["gmail-adapter"], "manual")
+        self.assertTrue(result["live_acceptance_required"])
+
+    def test_preflight_rejects_missing_selected_runtime(self) -> None:
+        result = run_preflight(
+            PLUGIN_ROOT,
+            runtime="claude",
+            which=lambda _name: None,
+        )
+        self.assertFalse(result["ok"])
+        self.assertTrue(
+            any(
+                item["code"] == "runtime" and item["status"] == "error"
+                for item in result["checks"]
+            )
+        )
 
 
 class StateStoreTests(unittest.TestCase):
