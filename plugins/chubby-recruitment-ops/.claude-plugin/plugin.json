@@ -1,7 +1,7 @@
 {
   "name": "chubby-recruitment-ops",
-  "version": "0.2.2",
-  "description": "将已批准岗位、多渠道社交招聘 Campaign、人工发布、Gmail 归因收件、候选匹配初筛、飞书 Base 和招聘日报串成可审计的增长闭环。",
+  "version": "0.3.0",
+  "description": "将社交招聘、归因收件、候选初筛、面试纪要核验、人工决策队列、飞书 Base 和招聘日报串成可审计闭环。",
   "author": {
     "name": "Chubby",
     "url": "https://github.com/chubbyguan"

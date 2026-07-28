@@ -1,6 +1,6 @@
 ---
 name: recruitment-ops-setup
-description: Initialize, configure, diagnose, or migrate a department-specific social recruitment workflow that uses approved job and salary facts, multi-channel campaign content, manual publication, attributed mailbox applications, candidate matching and scoring, Feishu Base writeback, and scheduled digests. Use when a user asks to install the plugin, bind a department, map an existing Base, connect Gmail or Feishu, configure channels, run a doctor check, or perform end-to-end acceptance.
+description: Initialize, configure, diagnose, or migrate a department-specific social recruitment workflow that uses approved job and salary facts, multi-channel campaign content, manual publication, attributed mailbox applications, candidate matching and scoring, Feishu Base writeback, Calendar and meeting reconciliation, original transcript evaluation, human decision queues, and scheduled digests. Use when a user asks to install the plugin, bind a department, map an existing Base, connect Gmail or Feishu, configure channels, run a doctor check, or perform end-to-end acceptance.
 ---
 
 # Recruitment Ops Setup
@@ -22,11 +22,20 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
 
    Fix package or runtime errors first. Treat Gmail and Feishu connector checks as pending until live read-only probes pass.
 3. Confirm the target business workspace. Do not initialize inside the plugin source directory.
+   If the workspace already has schema 2.0, preview and then apply the bundled migration:
+
+   ```bash
+   python3 <plugin-root>/scripts/migrate_config_v3.py --workspace <business-workspace>
+   python3 <plugin-root>/scripts/migrate_config_v3.py --workspace <business-workspace> --apply
+   ```
+
+   Preserve the generated private backup. Map every newly added table before continuing.
 4. Collect only the configuration needed for this department:
    - dedicated recruitment email;
    - timezone;
    - job/JD source and allowed job statuses;
    - Feishu Base and logical table mapping;
+   - Feishu Calendar, video-meeting, and Minutes access for interview reconciliation;
    - digest recipient;
    - approved public company name;
    - job-level public salary range, approval flag, and approval-reference fields;
@@ -40,7 +49,7 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
    ```
 
 6. Edit `<business-workspace>/.recruitment-ops/config.json` with real non-secret identifiers and adapter choices. Never store passwords, OAuth tokens, client secrets, access tokens, or candidate data in the config.
-7. Verify Gmail and Feishu access with read-only probes before any write.
+7. Verify Gmail, Feishu Base, Calendar, video-meeting, and Minutes access with read-only probes before any write.
 8. Map the department's existing Base when it already has candidate records. Do not create a parallel candidate master table.
 9. Compare the Base against `<plugin-root>/assets/feishu-base-schema.json`. Add missing auxiliary tables or fields only after showing the intended changes.
 10. Run:
@@ -61,13 +70,16 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
     - assessment validation;
     - one Base upsert;
     - a repeated run that creates no second candidate;
+    - one fictional completed interview with a usable transcript reference;
+    - one fictional completed interview without a usable transcript that remains `unable_to_assess`;
+    - one validated interview evaluation and one pending human decision;
     - one redacted digest sent to the configured Feishu target and read back.
     Record evidence with `<plugin-root>/assets/integration-acceptance-template.json`. Keep status `partial` and `production_ready: false` until every live readback field passes.
 13. Activate a recurring schedule only after acceptance passes and the user explicitly confirms activation. Keep every social-media publication manual.
 
 ## Adapter rules
 
-- Prefer the environment's connected Gmail and Feishu tools.
+- Prefer the environment's connected Gmail and Feishu Base, Calendar, VC, and Minutes tools.
 - For Codex, use the connected Gmail App and an available Feishu connector or authenticated `lark-cli`.
 - For Claude Code, use an organization-approved Gmail MCP/connector and Feishu MCP or authenticated `lark-cli`.
 - Stop if an adapter is absent or authorization cannot be verified. Do not claim that installing this plugin grants account access.
@@ -77,4 +89,4 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
 
 Report `ready` only when the synthetic end-to-end test and duplicate replay both pass. Otherwise report `partial` with the exact failed stage and evidence.
 
-Do not activate production processing merely because local scripts pass. Production readiness also requires live connector authorization, Base read/write verification, a configured recipient, and human approval of retention rules.
+Do not activate production processing merely because local scripts pass. Production readiness also requires live connector authorization, Base read/write verification, Calendar/meeting/Minutes readback, a configured recipient, and human approval of retention rules.

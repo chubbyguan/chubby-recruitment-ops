@@ -27,6 +27,15 @@
     "validation_passed": false,
     "protected_attribute_probe_blocked": false
   },
+  "interviews": {
+    "calendar_event_readback": false,
+    "meeting_fact_readback": false,
+    "minutes_search_fallback_checked": false,
+    "usable_transcript_reconciled": false,
+    "missing_transcript_remained_unevaluated": false,
+    "evaluation_validation_passed": false,
+    "human_decision_gate_verified": false
+  },
   "feishu_base": {
     "candidate_record_id": null,
     "candidate_readback": false,
@@ -34,7 +43,11 @@
     "application_readback": false,
     "attribution_record_id": null,
     "mail_log_record_id": null,
-    "run_log_record_id": null
+    "run_log_record_id": null,
+    "interview_record_id": null,
+    "interview_artifact_record_id": null,
+    "interview_evaluation_record_id": null,
+    "decision_queue_record_id": null
   },
   "idempotency": {
     "duplicate_replay_completed": false,

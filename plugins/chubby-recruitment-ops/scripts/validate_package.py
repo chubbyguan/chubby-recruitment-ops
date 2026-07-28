@@ -135,6 +135,7 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "skills" / "recruitment-ops-setup" / "SKILL.md",
         plugin_root / "skills" / "recruitment-ops-run" / "SKILL.md",
         plugin_root / "skills" / "social-recruitment-campaign" / "SKILL.md",
+        plugin_root / "skills" / "recruitment-interview-review" / "SKILL.md",
         plugin_root / "assets" / "config.example.json",
         plugin_root / "assets" / "job.example.json",
         plugin_root / "assets" / "eligible-jobs.example.json",
@@ -142,9 +143,15 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "assets" / "social-campaign-template.md",
         plugin_root / "assets" / "channel-playbook.md",
         plugin_root / "assets" / "digest-input.example.json",
+        plugin_root / "assets" / "interview-reconciliation.example.json",
+        plugin_root / "assets" / "interview-evaluation.example.json",
+        plugin_root / "assets" / "interview-scorecard-template.md",
         plugin_root / "assets" / "integration-acceptance-template.json",
         plugin_root / "scripts" / "build_campaign.py",
         plugin_root / "scripts" / "preflight.py",
+        plugin_root / "scripts" / "migrate_config_v3.py",
+        plugin_root / "scripts" / "reconcile_interviews.py",
+        plugin_root / "scripts" / "validate_interview_evaluation.py",
         plugin_root / "scripts" / "validate_campaign.py",
     ]
     for path in required_files:
@@ -166,6 +173,8 @@ def validate(repo_root: Path) -> list[str]:
     load_json(plugin_root / "assets" / "feishu-base-schema.json", errors)
     load_json(plugin_root / "assets" / "assessment.example.json", errors)
     load_json(plugin_root / "assets" / "digest-input.example.json", errors)
+    load_json(plugin_root / "assets" / "interview-reconciliation.example.json", errors)
+    load_json(plugin_root / "assets" / "interview-evaluation.example.json", errors)
     load_json(plugin_root / "assets" / "integration-acceptance-template.json", errors)
 
     expected_name = "chubby-recruitment-ops"

@@ -24,6 +24,10 @@ REQUIRED_TABLES = {
     "candidates",
     "applications",
     "application_stage_history",
+    "interviews",
+    "interview_artifacts",
+    "interview_evaluations",
+    "decision_queue",
     "mail_log",
     "automation_log",
 }
@@ -33,6 +37,8 @@ REQUIRED_CONTROLS = {
     "auto_invite_interview",
     "auto_send_offer",
     "auto_change_job_status",
+    "auto_merge_candidates",
+    "auto_mark_interview_passed",
 }
 EXPECTED_SCHEMA: dict[str, Any] = {
     "schema_version": None,
@@ -76,6 +82,9 @@ EXPECTED_SCHEMA: dict[str, Any] = {
         },
         "feishu": {
             "adapter": None,
+            "calendar_adapter": None,
+            "vc_adapter": None,
+            "minutes_adapter": None,
             "base_app_token": None,
             "digest_recipient_type": None,
             "digest_recipient_id": None,
@@ -90,8 +99,17 @@ EXPECTED_SCHEMA: dict[str, Any] = {
     },
     "schedule": {
         "inbox_hours": None,
+        "interview_reconcile_hours": None,
         "digest_hour": None,
+        "decision_digest_hour": None,
         "enabled": None,
+    },
+    "interview_policy": {
+        "artifact_min_seconds": None,
+        "evaluation_sla_hours": None,
+        "decision_sla_hours": None,
+        "allow_minutes_search_fallback": None,
+        "use_original_transcript_only": None,
     },
     "privacy": {
         "retention_days": None,
@@ -189,8 +207,8 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
             issue("error", "email-mismatch", "public application email must match the bound mailbox")
         )
 
-    if config.get("schema_version") != "2.0":
-        issues.append(issue("error", "schema-version", "config schema_version must be 2.0"))
+    if config.get("schema_version") != "3.0":
+        issues.append(issue("error", "schema-version", "config schema_version must be 3.0"))
 
     company = as_object(config.get("company"))
     raw_company_name = company.get("public_name", "")
@@ -337,6 +355,23 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
         or any(type(hour) is not int or not 0 <= hour <= 23 for hour in hours)
     ):
         issues.append(issue("error", "schedule", "inbox_hours must contain valid hours"))
+    interview_hours = schedule.get("interview_reconcile_hours", [])
+    if (
+        not isinstance(interview_hours, list)
+        or not interview_hours
+        or any(type(hour) is not int or not 0 <= hour <= 23 for hour in interview_hours)
+    ):
+        issues.append(
+            issue(
+                "error",
+                "schedule",
+                "interview_reconcile_hours must contain valid hours",
+            )
+        )
+    for field in ("digest_hour", "decision_digest_hour"):
+        hour = schedule.get(field)
+        if type(hour) is not int or not 0 <= hour <= 23:
+            issues.append(issue("error", "schedule", f"{field} must be a valid hour"))
     if schedule.get("enabled"):
         issues.append(
             issue(
@@ -346,9 +381,44 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
             )
         )
 
+    interview_policy = as_object(config.get("interview_policy"))
+    for field in (
+        "artifact_min_seconds",
+        "evaluation_sla_hours",
+        "decision_sla_hours",
+    ):
+        value = interview_policy.get(field)
+        if type(value) is not int or value <= 0:
+            issues.append(
+                issue(
+                    "error",
+                    "interview-policy",
+                    f"interview_policy.{field} must be a positive integer",
+                )
+            )
+    if interview_policy.get("allow_minutes_search_fallback") is not True:
+        issues.append(
+            issue(
+                "error",
+                "interview-policy",
+                "Minutes search fallback must be enabled",
+            )
+        )
+    if interview_policy.get("use_original_transcript_only") is not True:
+        issues.append(
+            issue(
+                "error",
+                "interview-policy",
+                "interview scoring must use the original transcript",
+            )
+        )
+
     adapter_values = (
         email_config.get("adapter", "auto"),
         feishu.get("adapter", "auto"),
+        feishu.get("calendar_adapter", "auto"),
+        feishu.get("vc_adapter", "auto"),
+        feishu.get("minutes_adapter", "auto"),
     )
     valid_adapters = [
         adapter
@@ -425,7 +495,7 @@ def run_doctor(workspace: Path) -> dict[str, Any]:
         "errors": errors,
         "warnings": warnings,
         "issues": issues,
-        "note": "This doctor is local-only; live Gmail and Feishu authorization still require read-only probes.",
+        "note": "This doctor is local-only; live Gmail, Feishu Base, Calendar, VC, and Minutes authorization still require read-only probes.",
     }
 
 

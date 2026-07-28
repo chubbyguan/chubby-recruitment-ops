@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 
 from build_campaign import build_campaign, content_hash
+from reconcile_interviews import reconcile
 from render_digest import render
 from state_store import (
     attachment_seen,
@@ -22,6 +23,7 @@ from state_store import (
 )
 from validate_assessment import validate_assessment
 from validate_campaign import validate_campaign
+from validate_interview_evaluation import validate_evaluation
 
 
 def check(condition: bool, message: str) -> None:
@@ -222,6 +224,53 @@ def main() -> int:
             )
             checks.append("protected-attribute rejection")
 
+            reconciliation_input = json.loads(
+                (
+                    plugin_root
+                    / "assets"
+                    / "interview-reconciliation.example.json"
+                ).read_text(encoding="utf-8")
+            )
+            reconciliation = reconcile(reconciliation_input)
+            check(
+                reconciliation["counts"]["completed"] == 2,
+                "completed meeting facts must reconcile",
+            )
+            check(
+                reconciliation["counts"]["usable_transcript"] == 1,
+                "only the usable original transcript may be evaluated",
+            )
+            check(
+                reconciliation["counts"]["artifact_missing_or_unusable"] == 1,
+                "short transcript must remain unusable",
+            )
+            check(
+                any(
+                    action["action_type"] == "review_candidate_merge"
+                    and action["requires_human_approval"]
+                    for action in reconciliation["decision_queue"]
+                ),
+                "candidate merge must remain a human gate",
+            )
+            checks.append("calendar meeting and transcript reconciliation")
+
+            interview_evaluation = json.loads(
+                (
+                    plugin_root / "assets" / "interview-evaluation.example.json"
+                ).read_text(encoding="utf-8")
+            )
+            check(
+                not validate_evaluation(interview_evaluation),
+                "evidence-linked interview evaluation must validate",
+            )
+            no_artifact_evaluation = copy.deepcopy(interview_evaluation)
+            no_artifact_evaluation["artifact_status"] = "no_artifact"
+            check(
+                bool(validate_evaluation(no_artifact_evaluation)),
+                "missing transcript must block interview scoring",
+            )
+            checks.append("interview evidence and missing-artifact gate")
+
             digest = render(
                 {
                     "date": "2099-01-01",
@@ -251,12 +300,23 @@ def main() -> int:
                         }
                     ],
                     "interviews": {},
+                    "interview_pipeline": {
+                        "scheduled_today": 0,
+                        "completed_today": 2,
+                        "awaiting_evaluation": 1,
+                        "artifact_missing": 1,
+                        "awaiting_decision": 2,
+                        "decision_overdue": 1,
+                        "backlog": [],
+                    },
                     "anomalies": [],
                 }
             )
             check("demo.person@example.com" not in digest, "digest must redact email")
             check("13800138000" not in digest, "digest must redact phone")
             check("点击 / 点击率：不可得 / 不可得" in digest, "missing CTR must stay unavailable")
+            check("无可用纪要：1" in digest, "interview artifact gap must appear in digest")
+            check("决定已超时：1" in digest, "overdue decision must appear in digest")
             checks.append("digest PII redaction")
     except (AssertionError, OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
         print(
@@ -281,7 +341,7 @@ def main() -> int:
                 "production_ready": False,
                 "integration_acceptance": "not_run",
                 "checks": checks,
-                "next_step": "Run controlled Gmail and Feishu probes, Base upsert/readback, duplicate replay, and digest send/readback.",
+                "next_step": "Run controlled Gmail and Feishu Base, Calendar, VC, and Minutes probes; then verify Base upsert/readback, duplicate replay, and digest send/readback.",
             },
             ensure_ascii=False,
             indent=2,

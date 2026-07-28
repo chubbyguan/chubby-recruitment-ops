@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "evaluation_id": "EVAL-DEMO-001",
+  "interview_id": "INT-DEMO-001",
+  "candidate_id": "CAND-DEMO-001",
+  "job_id": "DEMO-CONTENT-01",
+  "job_version": "DEMO-V1",
+  "artifact_status": "intelligent_transcript",
+  "source_artifact_ids": [
+    "ARTIFACT-DEMO-001"
+  ],
+  "evidence_refs": [
+    {
+      "evidence_id": "EVID-DEMO-001",
+      "artifact_id": "ARTIFACT-DEMO-001",
+      "dimension": "outcome_ownership",
+      "locator": "00:08:30"
+    },
+    {
+      "evidence_id": "EVID-DEMO-002",
+      "artifact_id": "ARTIFACT-DEMO-001",
+      "dimension": "business_judgment",
+      "locator": "00:14:10"
+    },
+    {
+      "evidence_id": "EVID-DEMO-003",
+      "artifact_id": "ARTIFACT-DEMO-001",
+      "dimension": "role_capability",
+      "locator": "00:21:45"
+    },
+    {
+      "evidence_id": "EVID-DEMO-004",
+      "artifact_id": "ARTIFACT-DEMO-001",
+      "dimension": "ai_execution",
+      "locator": "00:29:05"
+    },
+    {
+      "evidence_id": "EVID-DEMO-005",
+      "artifact_id": "ARTIFACT-DEMO-001",
+      "dimension": "collaboration",
+      "locator": "00:36:20"
+    },
+    {
+      "evidence_id": "EVID-DEMO-006",
+      "artifact_id": "ARTIFACT-DEMO-001",
+      "dimension": "credibility_risk",
+      "locator": "00:44:15"
+    }
+  ],
+  "scores": {
+    "outcome_ownership": 20,
+    "business_judgment": 15,
+    "role_capability": 16,
+    "ai_execution": 11,
+    "collaboration": 8,
+    "credibility_risk": 8
+  },
+  "total_score": 78,
+  "recommendation": "manual_review",
+  "strength_codes": [
+    "outcome_evidence",
+    "ownership_evidence",
+    "role_case_evidence"
+  ],
+  "risk_codes": [
+    "claim_not_verified"
+  ],
+  "missing_material_codes": [
+    "quantified_result_missing"
+  ],
+  "human_review_status": "pending"
+}

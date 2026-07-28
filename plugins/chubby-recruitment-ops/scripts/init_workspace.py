@@ -86,6 +86,7 @@ def initialize(args: argparse.Namespace) -> dict[str, object]:
         "drafts",
         "publications",
         "reports",
+        "interviews",
         "fixtures",
         "attachments",
     ):
@@ -110,6 +111,7 @@ def initialize(args: argparse.Namespace) -> dict[str, object]:
         ("privacy-notice-template.md", "privacy-notice-template.md"),
         ("social-campaign-template.md", "social-campaign-template.md"),
         ("channel-playbook.md", "channel-playbook.md"),
+        ("interview-scorecard-template.md", "interview-scorecard-template.md"),
     ):
         destination = operations_dir / destination_name
         if not destination.exists():
@@ -126,7 +128,7 @@ def initialize(args: argparse.Namespace) -> dict[str, object]:
             "map the department job, salary approval source, and Feishu Base tables",
             "authorize Gmail and Feishu adapters",
             "run doctor.py",
-            "complete campaign and synthetic end-to-end acceptance",
+            "complete campaign, interview, and synthetic end-to-end acceptance",
         ],
     }
 

@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "3.0",
   "department_id": "replace-with-department-id",
   "timezone": "Asia/Shanghai",
   "company": {
@@ -59,6 +59,9 @@
     },
     "feishu": {
       "adapter": "auto",
+      "calendar_adapter": "auto",
+      "vc_adapter": "auto",
+      "minutes_adapter": "auto",
       "base_app_token": "SET_LOCALLY",
       "digest_recipient_type": "open_id",
       "digest_recipient_id": "SET_LOCALLY",
@@ -72,6 +75,10 @@
         "candidates": "SET_LOCALLY",
         "applications": "SET_LOCALLY",
         "application_stage_history": "SET_LOCALLY",
+        "interviews": "SET_LOCALLY",
+        "interview_artifacts": "SET_LOCALLY",
+        "interview_evaluations": "SET_LOCALLY",
+        "decision_queue": "SET_LOCALLY",
         "mail_log": "SET_LOCALLY",
         "automation_log": "SET_LOCALLY"
       }
@@ -105,8 +112,21 @@
       19,
       21
     ],
+    "interview_reconcile_hours": [
+      11,
+      17,
+      19
+    ],
     "digest_hour": 19,
+    "decision_digest_hour": 19,
     "enabled": false
+  },
+  "interview_policy": {
+    "artifact_min_seconds": 120,
+    "evaluation_sla_hours": 24,
+    "decision_sla_hours": 48,
+    "allow_minutes_search_fallback": true,
+    "use_original_transcript_only": true
   },
   "privacy": {
     "retention_days": 180,
@@ -119,6 +139,8 @@
     "auto_reject_candidate": false,
     "auto_invite_interview": false,
     "auto_send_offer": false,
-    "auto_change_job_status": false
+    "auto_change_job_status": false,
+    "auto_merge_candidates": false,
+    "auto_mark_interview_passed": false
   }
 }

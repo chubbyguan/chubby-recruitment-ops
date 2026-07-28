@@ -71,6 +71,25 @@
       "business_reviewer"
     ]
   },
+  "interview_pipeline": {
+    "scheduled_today": 1,
+    "completed_today": 1,
+    "awaiting_evaluation": 1,
+    "artifact_missing": 0,
+    "awaiting_decision": 1,
+    "decision_overdue": 0,
+    "backlog": [
+      {
+        "alias": "CAND-001",
+        "interview_id": "INT-DEMO-001",
+        "interviewed_job_id": "DEMO-01",
+        "current_matched_job_id": "DEMO-01",
+        "artifact_status": "intelligent_transcript",
+        "next_action_code": "human_decision",
+        "overdue": false
+      }
+    ]
+  },
   "anomalies": [
     {
       "code": "none",

@@ -1,6 +1,6 @@
 ---
 name: recruitment-ops-run
-description: Operate an initialized social recruitment workflow for campaign execution, manual publication queues, multi-channel metrics, attributed mailbox applications, idempotent deduplication, job Top 3 matching, evidence-based screening, Feishu Base synchronization, and daily digests. Use when a user asks to run the recruiting cycle, process applications, match or score candidates, sync records, review channel performance, or generate the daily recruitment report.
+description: Operate an initialized social recruitment workflow for campaign execution, manual publication queues, multi-channel metrics, attributed mailbox applications, idempotent deduplication, job Top 3 matching, evidence-based screening, interview reconciliation, Feishu Base synchronization, decision backlogs, and daily digests. Use when a user asks to run the recruiting cycle, process applications, match or score candidates, reconcile interviews, sync records, review channel performance, or generate the daily recruitment report.
 ---
 
 # Recruitment Ops Run
@@ -12,7 +12,7 @@ Operate only inside a workspace that contains `.recruitment-ops/config.json`. If
 1. Read [business-rules.md](references/business-rules.md) completely.
 2. Load `.recruitment-ops/config.json`.
 3. Resolve the plugin root from this skill location and use the deterministic scripts under `<plugin-root>/scripts/`.
-4. Validate the requested mode: `campaign`, `inbox`, `metrics`, `digest`, or `full`.
+4. Validate the requested mode: `campaign`, `inbox`, `interview`, `metrics`, `digest`, or `full`.
 
 ## Campaign mode
 
@@ -52,6 +52,10 @@ For every human-published item, record the real URL, publication time, publisher
 - Calculate qualified rate only when attributed applications are greater than zero.
 - Compare channels on qualified candidates and interviews, not raw post count or likes.
 
+## Interview mode
+
+Use `$recruitment-interview-review`. Reconcile Calendar, video-meeting, and original Minutes facts before updating status or evaluating anyone. Keep the role actually interviewed separate from the latest matched role. A completed meeting never implies passed.
+
 ## Digest mode
 
 Generate a redacted daily digest containing:
@@ -60,6 +64,7 @@ Generate a redacted daily digest containing:
 - new email, new candidate, duplicate, parsing failure, and manual-review counts;
 - quality buckets and counts by matched job;
 - candidates worth reviewing, with job, score, evidence, risk, and suggested next step;
+- scheduled and completed interviews, missing artifacts, pending evaluations, pending human decisions, and overdue decisions;
 - interview suggestion and the earliest reasonable human follow-up time;
 - missing data, permission failures, overdue items, and decisions needed.
 
@@ -69,7 +74,7 @@ Use only candidate aliases such as `候选人A` or `CAND-001`. The digest accept
 
 ## Full mode
 
-Run `campaign` only when an approved job and publication plan exist. Then run `inbox` and `metrics`; run `digest` only at the configured digest hour or when explicitly requested.
+Run `campaign` only when an approved job and publication plan exist. Then run `inbox`, `interview`, and `metrics`; run `digest` only at the configured digest hour or when explicitly requested.
 
 ## Non-negotiable controls
 
@@ -77,6 +82,8 @@ Run `campaign` only when an approved job and publication plan exist. Then run `i
 - Do not publish, edit, or delete social-media content.
 - Do not invent or derive a salary range. Use only the approved value and approval reference in the current job source.
 - Do not automatically reject, invite, background-check, offer, or hire.
+- Do not automatically merge candidate identities or mark an interview passed.
+- Do not evaluate a completed interview without a usable original transcript or signed human note.
 - Do not score age, sex, gender, photo, marital or fertility status, ethnicity, nationality, native place, disability, religion, or other protected traits.
 - Do not fabricate platform analytics.
 - Do not send candidate PII to unauthorized chats, tools, or files.

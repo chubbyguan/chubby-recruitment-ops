@@ -19,7 +19,11 @@ REQUIRED_PACKAGE_PATHS = (
     "assets/feishu-base-schema.json",
     "scripts/doctor.py",
     "scripts/init_workspace.py",
+    "scripts/migrate_config_v3.py",
+    "scripts/reconcile_interviews.py",
     "scripts/state_store.py",
+    "scripts/validate_interview_evaluation.py",
+    "skills/recruitment-interview-review/SKILL.md",
     "skills/recruitment-ops-setup/SKILL.md",
     "skills/recruitment-ops-run/SKILL.md",
     "skills/social-recruitment-campaign/SKILL.md",
@@ -60,7 +64,7 @@ def run_preflight(
             "插件包缺少文件：" + "、".join(missing_paths),
         )
     else:
-        add("package", "pass", "插件清单、脚本、资产和 3 个 Skill 均存在")
+        add("package", "pass", "插件清单、脚本、资产和 4 个 Skill 均存在")
 
     runtime_names = ("codex", "claude") if runtime == "auto" else (runtime,)
     available_runtimes = [name for name in runtime_names if which(name)]
@@ -91,6 +95,11 @@ def run_preflight(
         "manual",
         "插件不会自动获得 Gmail 权限；初始化时必须核验授权账号",
     )
+    add(
+        "interview-adapters",
+        "manual",
+        "必须分别核验飞书日历、视频会议和妙记权限；Base 权限不能替代这些权限",
+    )
 
     if workspace is None:
         add(
@@ -114,10 +123,10 @@ def run_preflight(
             except (OSError, json.JSONDecodeError):
                 add("workspace", "error", "本地配置无法读取或不是有效 JSON")
             else:
-                if isinstance(config, dict) and config.get("schema_version") == "2.0":
-                    add("workspace", "pass", "已发现 schema_version=2.0 的私有工作区")
+                if isinstance(config, dict) and config.get("schema_version") == "3.0":
+                    add("workspace", "pass", "已发现 schema_version=3.0 的私有工作区")
                 else:
-                    add("workspace", "error", "工作区配置版本不是 2.0")
+                    add("workspace", "error", "工作区配置版本不是 3.0")
 
     errors = [item for item in checks if item["status"] == "error"]
     return {
@@ -127,8 +136,8 @@ def run_preflight(
         "checks": checks,
         "live_acceptance_required": True,
         "next_step": (
-            "运行 recruitment-ops-setup，完成 Gmail 账号探针、飞书写入回读、"
-            "重复邮件重放和日报送达验收"
+            "运行 recruitment-ops-setup，完成 Gmail 账号探针、飞书 Base 写入回读、"
+            "日历/会议/妙记探针、重复邮件重放和日报送达验收"
         ),
     }
 
