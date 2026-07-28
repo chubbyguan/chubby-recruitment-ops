@@ -8,14 +8,15 @@
     {
       "name": "chubby-recruitment-ops",
       "source": "./plugins/chubby-recruitment-ops",
-      "description": "从多渠道社交招聘 Campaign、人工发布与归因，到 Gmail 简历处理、岗位匹配、候选人初筛、飞书 Base 和招聘日报。",
+      "description": "从多渠道招聘 Campaign、归因收件与候选初筛，到面试纪要核验、人工决策队列、飞书 Base 和招聘日报。",
       "category": "productivity",
       "tags": [
         "recruitment",
         "social-recruiting",
         "xiaohongshu",
         "gmail",
-        "feishu"
+        "feishu",
+        "interview-review"
       ]
     }
   ]

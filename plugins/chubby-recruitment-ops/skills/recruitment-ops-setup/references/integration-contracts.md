@@ -32,6 +32,19 @@ The selected adapter must support:
 
 Logical table names must be mapped in config. Never bake a department's App Token, Table ID, Chat ID, or Open ID into the plugin.
 
+## Interview capability contract
+
+The selected Feishu adapters must support:
+
+- search Calendar events by participant and time window;
+- return stable event IDs and planned start/end;
+- inspect the linked video meeting and return stable meeting IDs plus actual start/end;
+- fetch the original intelligent transcript when available;
+- search Minutes by time and title when the meeting does not expose a transcript link;
+- distinguish missing, processing, permission-denied, insufficient, and usable artifacts.
+
+Base authorization alone does not prove Calendar, video-meeting, or Minutes access. Probe each capability separately.
+
 ## Social channel capability contract
 
 The default adapter is human operation:
@@ -71,7 +84,7 @@ Every matching run must use a current eligible-job snapshot containing job ID, j
 
 Use `<plugin-root>/assets/feishu-base-schema.json` as the logical model.
 
-The candidate table remains the sole candidate master. Applications are separate job-level facts. Campaign, content, publication, metric, attribution, mail, and run tables contain process facts only.
+The candidate table remains the sole candidate master. Applications are separate job-level facts. Interview sessions preserve the role actually interviewed. Artifact and evaluation tables store references and structured scores, not full transcripts. Campaign, content, publication, metric, attribution, mail, decision, and run tables contain process facts only.
 
 ## Acceptance evidence
 
@@ -83,6 +96,9 @@ Keep:
 - assessment JSON and validation result;
 - created candidate record ID;
 - duplicate replay result;
+- synthetic Calendar event, meeting, and transcript readback result;
+- interview reconciliation and validated evaluation result;
+- completed interview without usable transcript remaining unevaluated;
 - run log record ID;
 - digest message ID and readback result.
 

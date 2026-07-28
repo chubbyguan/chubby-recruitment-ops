@@ -1,0 +1,4 @@
+interface:
+  display_name: "招聘面试核验与评价"
+  short_description: "核验日历和纪要，生成有证据的面试建议并追踪待决策"
+  default_prompt: "使用 $recruitment-interview-review 核验近期面试事实、原始纪要与待决策项，并输出可回写的结构化评价。"

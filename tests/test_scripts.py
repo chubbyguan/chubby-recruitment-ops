@@ -20,10 +20,12 @@ SCRIPTS = PLUGIN_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from init_workspace import initialize  # noqa: E402
+from migrate_config_v3 import migrate  # noqa: E402
 from build_campaign import build_campaign, content_hash  # noqa: E402
 from doctor import run_doctor  # noqa: E402
 from preflight import run_preflight  # noqa: E402
 from render_digest import render  # noqa: E402
+from reconcile_interviews import reconcile  # noqa: E402
 from state_store import (  # noqa: E402
     attachment_seen,
     claim_message,
@@ -34,6 +36,7 @@ from state_store import (  # noqa: E402
 )
 from validate_assessment import validate_assessment  # noqa: E402
 from validate_campaign import validate_campaign  # noqa: E402
+from validate_interview_evaluation import validate_evaluation  # noqa: E402
 from validate_package import validate  # noqa: E402
 
 
@@ -421,6 +424,134 @@ class DigestTests(unittest.TestCase):
         self.assertNotIn("李四", output)
         self.assertIn("日期不可得", output)
 
+    def test_interview_backlog_exposes_missing_and_overdue_work(self) -> None:
+        output = render(
+            {
+                "date": "2099-01-01",
+                "interview_pipeline": {
+                    "scheduled_today": 2,
+                    "completed_today": 1,
+                    "awaiting_evaluation": 1,
+                    "artifact_missing": 1,
+                    "awaiting_decision": 1,
+                    "decision_overdue": 1,
+                    "backlog": [
+                        {
+                            "alias": "CAND-001",
+                            "interview_id": "INT-DEMO-001",
+                            "interviewed_job_id": "JOB-OLD",
+                            "current_matched_job_id": "JOB-NEW",
+                            "artifact_status": "no_artifact",
+                            "next_action_code": "request_manual_interview_note",
+                            "overdue": True,
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertIn("无可用纪要：1", output)
+        self.assertIn("决定已超时：1", output)
+        self.assertIn("JOB-OLD｜JOB-NEW｜无可用纪要｜补人工面试记录｜已超时", output)
+
+
+class InterviewReconciliationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "interview-reconciliation.example.json"
+            ).read_text(encoding="utf-8")
+        )
+
+    def test_completed_meeting_is_not_treated_as_passed(self) -> None:
+        result = reconcile(self.payload)
+        self.assertEqual(result["counts"]["completed"], 2)
+        self.assertEqual(result["counts"]["usable_transcript"], 1)
+        self.assertEqual(result["counts"]["artifact_missing_or_unusable"], 1)
+        self.assertEqual(result["record_updates"][0]["interview_status"], "completed")
+        self.assertTrue(
+            all(
+                item["interview_status"] != "passed"
+                and item["human_decision_status"] != "passed"
+                for item in result["record_updates"]
+            )
+        )
+
+    def test_short_recording_requests_manual_note(self) -> None:
+        result = reconcile(self.payload)
+        second = result["record_updates"][1]
+        self.assertEqual(second["artifact_status"], "insufficient_transcript")
+        self.assertTrue(
+            any(
+                action["action_type"] == "request_manual_interview_note"
+                for action in result["decision_queue"]
+            )
+        )
+        self.assertTrue(
+            any(
+                action["action_type"] == "review_candidate_merge"
+                and action["requires_human_approval"]
+                for action in result["decision_queue"]
+            )
+        )
+
+    def test_interviewed_and_current_role_are_preserved_separately(self) -> None:
+        result = reconcile(self.payload)
+        second = result["record_updates"][1]
+        self.assertEqual(second["interviewed_job_id"], "DEMO-OPS-01")
+        self.assertEqual(second["current_matched_job_id"], "DEMO-BRAND-01")
+
+    def test_naive_calendar_time_does_not_crash_reconciliation(self) -> None:
+        self.payload["interviews"][0]["calendar"]["planned_end"] = "2099-01-02T15:00:00"
+        result = reconcile(self.payload)
+        self.assertEqual(result["counts"]["completed"], 2)
+
+
+class InterviewEvaluationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.evaluation = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "interview-evaluation.example.json"
+            ).read_text(encoding="utf-8")
+        )
+
+    def test_evidence_linked_evaluation_passes(self) -> None:
+        self.assertEqual(validate_evaluation(self.evaluation), [])
+
+    def test_nonzero_score_requires_transcript_evidence(self) -> None:
+        invalid = copy.deepcopy(self.evaluation)
+        invalid["evidence_refs"] = [
+            reference
+            for reference in invalid["evidence_refs"]
+            if reference["dimension"] != "ai_execution"
+        ]
+        self.assertTrue(
+            any(
+                "scores.ai_execution lacks transcript evidence" in error
+                for error in validate_evaluation(invalid)
+            )
+        )
+
+    def test_unusable_transcript_cannot_be_scored(self) -> None:
+        invalid = copy.deepcopy(self.evaluation)
+        invalid["artifact_status"] = "no_artifact"
+        errors = validate_evaluation(invalid)
+        self.assertTrue(any("must not receive dimension scores" in error for error in errors))
+        self.assertTrue(any("must not receive total_score" in error for error in errors))
+
+    def test_protected_attribute_is_rejected(self) -> None:
+        invalid = copy.deepcopy(self.evaluation)
+        invalid["strength_codes"].append("女性优先")
+        self.assertTrue(
+            any(
+                "protected attributes" in error
+                for error in validate_evaluation(invalid)
+            )
+        )
+
 
 class InitializationTests(unittest.TestCase):
     def test_initialization_creates_private_local_state(self) -> None:
@@ -442,13 +573,14 @@ class InitializationTests(unittest.TestCase):
             config = json.loads(
                 (operations / "config.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(config["schema_version"], "2.0")
+            self.assertEqual(config["schema_version"], "3.0")
             self.assertEqual(config["company"]["public_name"], "诺特兰德集团")
             self.assertTrue(config["company"]["disclose_public_name"])
             self.assertEqual(config["compensation"]["source"], "job_source")
             self.assertEqual(config["channels"]["publish_mode"], "manual")
             self.assertTrue((operations / "campaigns").is_dir())
             self.assertTrue((operations / "publications").is_dir())
+            self.assertTrue((operations / "interviews").is_dir())
             self.assertEqual((operations / ".gitignore").read_text(encoding="utf-8"), "*\n!.gitignore\n")
             self.assertEqual(stat.S_IMODE(operations.stat().st_mode), 0o700)
             self.assertEqual(
@@ -459,6 +591,61 @@ class InitializationTests(unittest.TestCase):
             )
             self.assertEqual(
                 stat.S_IMODE((operations / "attachments").stat().st_mode), 0o700
+            )
+
+    def test_schema_two_config_migrates_with_private_backup(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir) / "department"
+            initialize(
+                argparse.Namespace(
+                    workspace=workspace,
+                    email="jobs-test@example.com",
+                    timezone="Asia/Shanghai",
+                    department_id="demo",
+                    force=False,
+                )
+            )
+            config_path = workspace / ".recruitment-ops" / "config.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["schema_version"] = "2.0"
+            for key in (
+                "calendar_adapter",
+                "vc_adapter",
+                "minutes_adapter",
+            ):
+                del config["connectors"]["feishu"][key]
+            for key in (
+                "interviews",
+                "interview_artifacts",
+                "interview_evaluations",
+                "decision_queue",
+            ):
+                del config["connectors"]["feishu"]["tables"][key]
+            del config["interview_policy"]
+            del config["schedule"]["interview_reconcile_hours"]
+            del config["schedule"]["decision_digest_hour"]
+            del config["controls"]["auto_merge_candidates"]
+            del config["controls"]["auto_mark_interview_passed"]
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+
+            preview = migrate(workspace)
+            self.assertTrue(preview["changed"])
+            self.assertFalse(preview["applied"])
+            self.assertEqual(
+                set(preview["added_table_mappings"]),
+                {
+                    "interviews",
+                    "interview_artifacts",
+                    "interview_evaluations",
+                    "decision_queue",
+                },
+            )
+            applied = migrate(workspace, apply=True)
+            self.assertTrue(applied["applied"])
+            migrated = json.loads(config_path.read_text(encoding="utf-8"))
+            self.assertEqual(migrated["schema_version"], "3.0")
+            self.assertTrue(
+                (workspace / ".recruitment-ops" / "config.backup-v2.json").is_file()
             )
 
     def test_doctor_passes_completed_local_mapping(self) -> None:

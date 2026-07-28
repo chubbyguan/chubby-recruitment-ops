@@ -86,7 +86,28 @@ ANOMALY_LABELS = {
     "owner_missing": "存在缺少 Owner 的记录",
     "overdue": "存在超期待处理记录",
     "connector_or_data_missing": "存在连接器、权限或数据缺失",
+    "interview_artifact_missing": "存在已完成面试但无可用纪要",
+    "interview_transcript_insufficient": "存在面试纪要时长不足",
+    "interview_attendance_unverified": "存在计划已过但出席事实未核验",
+    "interview_meeting_fact_incomplete": "存在已完成面试但实际会议时间不完整",
+    "interview_decision_overdue": "存在面试决定超时",
     "none": "今日无新增异常",
+}
+ARTIFACT_LABELS = {
+    "intelligent_transcript": "智能纪要可用",
+    "minutes_transcript": "妙记逐字稿可用",
+    "insufficient_transcript": "纪要时长不足",
+    "no_artifact": "无可用纪要",
+    "permission_denied": "纪要无权限",
+    "processing": "纪要处理中",
+}
+NEXT_ACTION_LABELS = {
+    "generate_interview_evaluation": "生成面试评价",
+    "request_manual_interview_note": "补人工面试记录",
+    "human_decision": "负责人做决定",
+    "human_interview_decision": "负责人做决定",
+    "review_candidate_merge": "人工核验重复候选人",
+    "none": "无需新增动作",
 }
 MAX_METRIC_VALUE = 10**15
 
@@ -180,6 +201,22 @@ def reviewed_anomaly(value: Any) -> str:
     return f"{label}（{count:g}）" if count is not None else label
 
 
+def interview_backlog_line(value: Any) -> str:
+    if not isinstance(value, dict):
+        return "- 面试记录不可得"
+    return "- " + "｜".join(
+        [
+            safe_candidate_alias(value.get("alias")),
+            safe_id(value.get("interview_id"), "面试ID未知"),
+            safe_id(value.get("interviewed_job_id"), "面试岗位未知"),
+            safe_id(value.get("current_matched_job_id"), "当前岗位未知"),
+            ARTIFACT_LABELS.get(value.get("artifact_status"), "纪要状态不可得"),
+            NEXT_ACTION_LABELS.get(value.get("next_action_code"), "下一步不可得"),
+            "已超时" if value.get("overdue") is True else "未超时",
+        ]
+    )
+
+
 def object_section(data: dict[str, Any], key: str) -> dict[str, Any]:
     value = data.get(key, {})
     return value if isinstance(value, dict) else {}
@@ -221,6 +258,7 @@ def render(data: dict[str, Any]) -> str:
     if not isinstance(candidates, list):
         candidates = []
     interviews = object_section(data, "interviews")
+    interview_pipeline = object_section(data, "interview_pipeline")
     anomalies = data.get("anomalies", [])
     if not isinstance(anomalies, list):
         anomalies = []
@@ -321,11 +359,29 @@ def render(data: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "## 5. 面试建议",
+            "## 5. 面试与决策",
             "",
+            f"- 今日计划面试：{numeric_metric(interview_pipeline.get('scheduled_today'))}",
+            f"- 今日已完成：{numeric_metric(interview_pipeline.get('completed_today'))}",
+            f"- 待生成评价：{numeric_metric(interview_pipeline.get('awaiting_evaluation'))}",
+            f"- 无可用纪要：{numeric_metric(interview_pipeline.get('artifact_missing'))}",
+            f"- 待人工决定：{numeric_metric(interview_pipeline.get('awaiting_decision'))}",
+            f"- 决定已超时：{numeric_metric(interview_pipeline.get('decision_overdue'))}",
             f"- 建议：{INTERVIEW_LABELS.get(interviews.get('suggestion_code'), '不可得')}",
             f"- 最早人工跟进时间：{FOLLOW_UP_LABELS.get(interviews.get('follow_up_code'), '不可得')}",
             f"- 建议参加人：{'、'.join(PARTICIPANT_LABELS[code] for code in interviews.get('participant_codes', []) if code in PARTICIPANT_LABELS) or '不可得'}",
+            "",
+            "### 面试积压",
+            "",
+        ]
+    )
+    backlog = interview_pipeline.get("backlog")
+    if isinstance(backlog, list) and backlog:
+        lines.extend(interview_backlog_line(item) for item in backlog[:10])
+    else:
+        lines.append("- 无可用面试积压记录")
+    lines.extend(
+        [
             "",
             "## 6. 异常与待决策",
             "",

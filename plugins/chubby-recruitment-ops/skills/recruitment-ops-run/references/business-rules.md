@@ -4,6 +4,8 @@
 
 Optimize for qualified candidates who can enter a structured interview, not post count, likes, raw applications, or AI scores. Track `campaign -> publication -> attribution -> application -> qualified candidate` as one chain.
 
+Continue the chain through `interview scheduled -> meeting completed -> original transcript available -> AI advisory evaluation -> human decision`. These are separate states.
+
 ## Job gates
 
 | Job state | Public action | Candidate action |
@@ -65,6 +67,8 @@ Deduplicate in this order:
 
 Same name is never enough to overwrite or merge.
 
+Aliases, a reused email, or a chat nickname may create a duplicate-review action, but only an authorized human may merge candidate records.
+
 Atomically claim each message before downloading or parsing. Keep the returned fencing token and require it on completion or failure. Use a short lease so an interrupted `processing` record can be reclaimed after expiry. Allow bounded retries for `failed` records; never reclaim terminal `success`, `duplicate`, or `manual_review` records automatically. A stale worker must not complete after another worker receives a new token.
 
 ## Matching output
@@ -113,6 +117,19 @@ Do not extract or score age, date of birth, sex, gender, photo or appearance, ma
 
 Contact details may be used only for authorized recruiting communication, not scoring.
 
+## Interview facts and evaluation
+
+Use `$recruitment-interview-review` for interview work.
+
+- Calendar proves what was planned; video-meeting facts prove whether a meeting happened.
+- Search Minutes as a fallback when meeting details do not link a transcript.
+- Use the original transcript for scoring. An AI summary is insufficient.
+- Record `interviewed_job_id` separately from the latest `current_matched_job_id`.
+- `completed` means the meeting happened, never that the candidate passed.
+- If the transcript is absent, inaccessible, processing, or too short, record the reason and request a human interviewer note.
+- Store stable evidence references and timestamps, not complete transcript text, in Base.
+- Generate the advisory evaluation within the configured SLA and keep the item visible until a human decision is recorded.
+
 ## Channel metrics
 
 Use only real, non-negative, finite values:
@@ -139,6 +156,7 @@ Require a human before:
 - publishing, editing, or deleting a post;
 - merging suspected duplicate candidates;
 - rejecting or inviting a candidate;
+- marking an interview passed or closed;
 - sending a background check or offer;
 - changing compensation or job gate;
 - forwarding a resume outside authorized recruiting access.
