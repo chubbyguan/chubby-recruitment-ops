@@ -38,6 +38,12 @@ def safe_id(value: Any, field: str) -> str:
     return text
 
 
+def stable_id_or_none(value: Any) -> str | None:
+    """Return a stable identifier without letting one legacy value abort a run."""
+    text = str(value if value is not None else "").strip()
+    return text if SAFE_ID.fullmatch(text) else None
+
+
 def score_value(value: Any, field: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{field} must be a number")
@@ -189,6 +195,7 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
         for index, item in enumerate(as_list(data.get("previous_sent_keys")))
     }
     needs_information: list[dict[str, Any]] = []
+    review_actions: list[dict[str, Any]] = []
     excluded: list[dict[str, Any]] = []
     eligible_by_job: dict[str, list[dict[str, Any]]] = {}
     seen_applications: set[str] = set()
@@ -215,10 +222,7 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
             application.get("job_id"),
             f"applications[{index}].job_id",
         )
-        job_version = safe_id(
-            application.get("job_version"),
-            f"applications[{index}].job_version",
-        )
+        source_job_version = stable_id_or_none(application.get("job_version"))
         score = score_value(
             application.get("score"),
             f"applications[{index}].score",
@@ -239,7 +243,7 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
             "application_id": application_id,
             "candidate_id": candidate_id,
             "job_id": job_id,
-            "job_version": job_version,
+            "job_version": source_job_version or "UNRESOLVED",
             "score": score,
             "evidence_refs": evidence_refs,
             "risk_codes": risk_codes,
@@ -253,9 +257,6 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
             job.get("job_version"),
             f"jobs[{job_id}].job_version",
         )
-        if current_job_version != job_version:
-            excluded.append({**base_result, "reason_code": "job_version_stale"})
-            continue
         gate = str(job.get("gate", "")).strip()
         if gate in CONDITIONAL_JOB_GATES:
             excluded.append({**base_result, "reason_code": "job_conditional"})
@@ -289,6 +290,58 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
                 f"jobs[{job_id}].recommendation_gate.require_hard_gate_pass "
                 "must be boolean"
             )
+        if source_job_version != current_job_version:
+            version_reason = (
+                "job_version_invalid"
+                if source_job_version is None
+                else "job_version_stale"
+            )
+            excluded.append(
+                {
+                    **base_result,
+                    "current_job_version": current_job_version,
+                    "reason_code": version_reason,
+                    "requires_human_review": True,
+                }
+            )
+            if score >= threshold and candidate.get("has_resume") is True:
+                suggested_action = "review_job_version_migration"
+                idempotency_key = recommendation_key(
+                    candidate_id,
+                    job_id,
+                    current_job_version,
+                    score,
+                    suggested_action,
+                    evidence_refs,
+                    risk_codes,
+                    missing_material_codes,
+                    application_id=application_id,
+                )
+                review_actions.append(
+                    {
+                        **base_result,
+                        "job_version": current_job_version,
+                        "current_job_version": current_job_version,
+                        "source_job_version_status": (
+                            "invalid"
+                            if source_job_version is None
+                            else "stale"
+                        ),
+                        "effective_minimum_score": threshold,
+                        "suggested_action": suggested_action,
+                        "review_reason_codes": [version_reason],
+                        "requires_fact_confirmation": False,
+                        "requires_human_approval": True,
+                        "idempotency_key": idempotency_key,
+                        "action_id": f"ACTION-{idempotency_key}",
+                        "notification_status": (
+                            "already_sent"
+                            if idempotency_key in sent_keys
+                            else "pending"
+                        ),
+                    }
+                )
+            continue
         incomplete_reasons: list[str] = []
         if candidate.get("has_resume") is not True:
             incomplete_reasons.append("resume_missing")
@@ -318,6 +371,40 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
                     "suggested_action": "request_more_info",
                 }
             )
+            if (
+                score >= threshold
+                and candidate.get("has_resume") is True
+                and "hard_gate_not_verified" in incomplete_reasons
+            ):
+                suggested_action = "verify_hard_gate_and_missing_information"
+                idempotency_key = recommendation_key(
+                    candidate_id,
+                    job_id,
+                    current_job_version,
+                    score,
+                    suggested_action,
+                    evidence_refs,
+                    risk_codes,
+                    missing_material_codes,
+                    application_id=application_id,
+                )
+                review_actions.append(
+                    {
+                        **base_result,
+                        "effective_minimum_score": threshold,
+                        "suggested_action": suggested_action,
+                        "review_reason_codes": sorted(set(incomplete_reasons)),
+                        "requires_fact_confirmation": False,
+                        "requires_human_approval": True,
+                        "idempotency_key": idempotency_key,
+                        "action_id": f"ACTION-{idempotency_key}",
+                        "notification_status": (
+                            "already_sent"
+                            if idempotency_key in sent_keys
+                            else "pending"
+                        ),
+                    }
+                )
             continue
 
         requires_fact_confirmation = (
@@ -332,7 +419,7 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
         idempotency_key = recommendation_key(
             candidate_id,
             job_id,
-            job_version,
+            current_job_version,
             score,
             suggested_action,
             evidence_refs,
@@ -385,7 +472,7 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
 
     notifications = [
         item
-        for item in recommendations
+        for item in [*recommendations, *review_actions]
         if item["notification_status"] == "pending"
     ]
     return {
@@ -394,12 +481,14 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
             "candidates_scanned": len(candidates),
             "applications_scanned": len(seen_applications),
             "recommended": len(recommendations),
+            "review_actions": len(review_actions),
             "needs_information": len(needs_information),
             "excluded": len(excluded),
             "new_notifications": len(notifications),
             "anomalies": len(anomalies),
         },
         "recommendations": recommendations,
+        "review_actions": review_actions,
         "needs_information": needs_information,
         "excluded": excluded,
         "notifications": notifications,

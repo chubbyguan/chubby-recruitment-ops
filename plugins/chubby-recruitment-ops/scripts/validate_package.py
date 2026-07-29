@@ -150,6 +150,7 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "assets" / "interview-scorecard-template.md",
         plugin_root / "assets" / "integration-acceptance-template.json",
         plugin_root / "scripts" / "build_campaign.py",
+        plugin_root / "scripts" / "hash_attachment.py",
         plugin_root / "scripts" / "preflight.py",
         plugin_root / "scripts" / "migrate_config_v3.py",
         plugin_root / "scripts" / "migrate_config_v4.py",

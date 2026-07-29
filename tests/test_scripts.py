@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -24,12 +25,15 @@ from migrate_config_v3 import migrate  # noqa: E402
 from migrate_config_v4 import migrate as migrate_v4  # noqa: E402
 from build_campaign import build_campaign, content_hash  # noqa: E402
 from doctor import run_doctor  # noqa: E402
+from hash_attachment import hash_attachment  # noqa: E402
 from preflight import run_preflight  # noqa: E402
 from recommend_interviews import recommend  # noqa: E402
 from run_cycle import execute_cycle  # noqa: E402
 from render_digest import render  # noqa: E402
 from reconcile_interviews import reconcile  # noqa: E402
 from sync_feishu_hire import (  # noqa: E402
+    AdapterError,
+    LarkCli,
     build_base_operations,
     build_snapshot,
     normalize_interview,
@@ -95,6 +99,36 @@ class PreflightTests(unittest.TestCase):
                 for item in result["checks"]
             )
         )
+
+
+class AttachmentHashTests(unittest.TestCase):
+    def test_hashes_allowed_resume_without_parsing_it(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            attachment = Path(temp_dir) / "resume.pdf"
+            attachment.write_bytes(b"%PDF-untrusted-resume")
+            result = hash_attachment(attachment)
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["hash_status"], "hashed")
+            self.assertEqual(
+                result["sha256"],
+                hashlib.sha256(b"%PDF-untrusted-resume").hexdigest(),
+            )
+
+    def test_rejects_symlink_disallowed_type_and_oversized_attachment(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "resume.pdf"
+            source.write_bytes(b"resume")
+            linked = root / "linked.pdf"
+            linked.symlink_to(source)
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                hash_attachment(linked)
+            executable = root / "resume.exe"
+            executable.write_bytes(b"not executable here")
+            with self.assertRaisesRegex(ValueError, "type"):
+                hash_attachment(executable)
+            with self.assertRaisesRegex(ValueError, "size"):
+                hash_attachment(source, max_bytes=1)
 
 
 class StateStoreTests(unittest.TestCase):
@@ -564,6 +598,78 @@ class FeishuHireSyncTests(unittest.TestCase):
         self.assertNotIn("状态", client.written)
         self.assertNotIn("备注", client.written)
 
+    def test_lark_cli_retries_rate_limit_with_bounded_backoff(self) -> None:
+        delayed: list[float] = []
+        responses = [
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=1,
+                stdout=json.dumps(
+                    {
+                        "ok": False,
+                        "error": {
+                            "code": 800004135,
+                            "subtype": "rate_limited",
+                            "message": "Too many requests",
+                        },
+                    }
+                ),
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=json.dumps({"ok": True, "data": {"value": 1}}),
+                stderr="",
+            ),
+        ]
+        cli = LarkCli(
+            binary="true",
+            max_attempts=3,
+            retry_base_seconds=0.5,
+            retry_max_seconds=2,
+            sleeper=delayed.append,
+        )
+        with patch(
+            "sync_feishu_hire.subprocess.run",
+            side_effect=responses,
+        ) as mocked:
+            result = cli.run(["api", "GET", "/demo"])
+        self.assertTrue(result["ok"])
+        self.assertEqual(mocked.call_count, 2)
+        self.assertEqual(delayed, [0.5])
+
+    def test_lark_cli_does_not_retry_permission_error(self) -> None:
+        delayed: list[float] = []
+        response = subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout=json.dumps(
+                {
+                    "ok": False,
+                    "error": {
+                        "code": 99991672,
+                        "subtype": "permission_denied",
+                        "message": "permission denied",
+                    },
+                }
+            ),
+            stderr="",
+        )
+        cli = LarkCli(
+            binary="true",
+            max_attempts=4,
+            sleeper=delayed.append,
+        )
+        with patch(
+            "sync_feishu_hire.subprocess.run",
+            return_value=response,
+        ) as mocked:
+            with self.assertRaises(AdapterError):
+                cli.run(["api", "GET", "/demo"])
+        self.assertEqual(mocked.call_count, 1)
+        self.assertEqual(delayed, [])
+
 
 class AssessmentTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -795,6 +901,64 @@ class InterviewRecommendationTests(unittest.TestCase):
         payload["applications"][0]["job_version"] = "V1.0-20260727"
         result = recommend(payload)
         self.assertEqual(result["counts"]["recommended"], 1)
+
+    def test_v2_quarantines_legacy_job_version_without_aborting_run(self) -> None:
+        payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "recruitment-cycle.example.json"
+            ).read_text(encoding="utf-8")
+        )["recommendation_input"]
+        payload["applications"][0]["job_version"] = "P1-06｜2026-07-26"
+        result = recommend(payload)
+        self.assertEqual(result["counts"]["recommended"], 0)
+        self.assertEqual(result["counts"]["review_actions"], 1)
+        self.assertEqual(
+            result["excluded"][0]["reason_code"],
+            "job_version_invalid",
+        )
+        review = result["review_actions"][0]
+        self.assertEqual(
+            review["suggested_action"],
+            "review_job_version_migration",
+        )
+        self.assertEqual(review["job_version"], "JOB-DEMO-V1")
+        self.assertNotIn("P1-06｜2026-07-26", json.dumps(result, ensure_ascii=False))
+
+    def test_v2_high_score_unverified_hard_gate_creates_review_action(self) -> None:
+        payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "recruitment-cycle.example.json"
+            ).read_text(encoding="utf-8")
+        )["recommendation_input"]
+        payload["applications"][0]["hard_gate_pass"] = False
+        result = recommend(payload)
+        self.assertEqual(result["counts"]["recommended"], 0)
+        self.assertEqual(result["counts"]["review_actions"], 1)
+        self.assertIn(
+            "hard_gate_not_verified",
+            result["review_actions"][0]["review_reason_codes"],
+        )
+        self.assertEqual(result["counts"]["new_notifications"], 1)
+
+    def test_v2_low_score_unverified_hard_gate_does_not_create_noisy_action(
+        self,
+    ) -> None:
+        payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "recruitment-cycle.example.json"
+            ).read_text(encoding="utf-8")
+        )["recommendation_input"]
+        payload["applications"][0]["score"] = 70
+        payload["applications"][0]["hard_gate_pass"] = False
+        result = recommend(payload)
+        self.assertEqual(result["counts"]["review_actions"], 0)
+        self.assertEqual(result["counts"]["new_notifications"], 0)
 
     def test_v2_caps_each_role_and_preserves_application_identity(self) -> None:
         payload = json.loads(
@@ -1370,6 +1534,38 @@ class InitializationTests(unittest.TestCase):
             self.assertEqual(first["counts"]["notifications_created"], 1)
             self.assertEqual(second["counts"]["actions_created"], 0)
             self.assertEqual(second["counts"]["notifications_created"], 0)
+
+    def test_commit_cycle_persists_hard_gate_review_idempotently(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            payload = json.loads(
+                (
+                    PLUGIN_ROOT
+                    / "assets"
+                    / "recruitment-cycle.example.json"
+                ).read_text(encoding="utf-8")
+            )
+            payload["recommendation_input"]["applications"][0][
+                "hard_gate_pass"
+            ] = False
+            state_db = Path(temp_dir) / "state.sqlite3"
+            first = execute_cycle(payload, state_db=state_db, commit=True)
+            second = execute_cycle(payload, state_db=state_db, commit=True)
+            self.assertEqual(first["counts"]["actions_created"], 1)
+            self.assertEqual(first["counts"]["notifications_created"], 1)
+            self.assertEqual(
+                first["recommendation"]["review_actions"][0][
+                    "suggested_action"
+                ],
+                "verify_hard_gate_and_missing_information",
+            )
+            self.assertEqual(second["counts"]["actions_created"], 0)
+            self.assertEqual(second["counts"]["notifications_created"], 0)
+            connection = connect(state_db)
+            action_type = connection.execute(
+                "SELECT action_type FROM actions"
+            ).fetchone()[0]
+            connection.close()
+            self.assertEqual(action_type, "verify_hard_gate_human_review")
 
     def test_doctor_passes_completed_local_mapping(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

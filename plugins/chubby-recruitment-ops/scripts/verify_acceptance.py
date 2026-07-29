@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 
 from build_campaign import build_campaign, content_hash
+from hash_attachment import hash_attachment
 from recommend_interviews import recommend
 from reconcile_interviews import reconcile
 from render_digest import render
@@ -79,6 +80,17 @@ def main() -> int:
                 "processed attachment must be seen",
             )
             checks.append("attachment hash idempotency")
+            raw_attachment = Path(temp_dir) / "synthetic-resume.pdf"
+            raw_attachment.write_bytes(b"%PDF-synthetic-untrusted-resume")
+            hashed = hash_attachment(raw_attachment)
+            check(
+                hashed["sha256"]
+                == hashlib.sha256(
+                    b"%PDF-synthetic-untrusted-resume"
+                ).hexdigest(),
+                "attachment hash must use raw file bytes",
+            )
+            checks.append("raw attachment safety and deterministic hashing")
 
             hire_interview = normalize_interview(
                 {
@@ -337,6 +349,33 @@ def main() -> int:
             connection.close()
             checks.append(
                 "v5 run lease action outbox and fingerprint-bound approval"
+            )
+
+            hard_gate_input = copy.deepcopy(
+                cycle_input["recommendation_input"]
+            )
+            hard_gate_input["applications"][0]["hard_gate_pass"] = False
+            hard_gate_review = recommend(hard_gate_input)
+            check(
+                hard_gate_review["counts"]["recommended"] == 0
+                and hard_gate_review["counts"]["review_actions"] == 1,
+                "unverified hard gate must create review instead of interview recommendation",
+            )
+            legacy_version_input = copy.deepcopy(
+                cycle_input["recommendation_input"]
+            )
+            legacy_version_input["applications"][0][
+                "job_version"
+            ] = "P1-06｜2026-07-26"
+            legacy_version_review = recommend(legacy_version_input)
+            check(
+                legacy_version_review["counts"]["review_actions"] == 1
+                and legacy_version_review["excluded"][0]["reason_code"]
+                == "job_version_invalid",
+                "legacy job version must be quarantined without aborting the run",
+            )
+            checks.append(
+                "legacy job-version quarantine and hard-gate review routing"
             )
 
             reconciliation_input = json.loads(

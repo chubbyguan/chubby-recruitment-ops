@@ -60,7 +60,7 @@ def validate_readbacks(payload: dict[str, Any]) -> None:
 
 def redacted_action_payload(item: dict[str, Any]) -> dict[str, Any]:
     """Allow only stable IDs, scores, and approved codes into the outbox."""
-    return {
+    payload = {
         "application_id": item["application_id"],
         "candidate_id": item["candidate_id"],
         "job_id": item["job_id"],
@@ -68,13 +68,33 @@ def redacted_action_payload(item: dict[str, Any]) -> dict[str, Any]:
         "score": item["score"],
         "effective_minimum_score": item["effective_minimum_score"],
         "suggested_action": item["suggested_action"],
-        "requires_fact_confirmation": item["requires_fact_confirmation"],
+        "requires_fact_confirmation": item.get(
+            "requires_fact_confirmation",
+            False,
+        ),
         "evidence_refs": item["evidence_refs"],
         "risk_codes": item["risk_codes"],
         "missing_material_codes": item["missing_material_codes"],
         "requires_human_approval": True,
         "invite_requires_separate_human_confirmation": True,
     }
+    if item.get("review_reason_codes"):
+        payload["review_reason_codes"] = item["review_reason_codes"]
+    if item.get("source_job_version_status"):
+        payload["source_job_version_status"] = item[
+            "source_job_version_status"
+        ]
+    if item.get("current_job_version"):
+        payload["current_job_version"] = item["current_job_version"]
+    return payload
+
+
+def action_type(item: dict[str, Any]) -> str:
+    if item["suggested_action"] == "review_job_version_migration":
+        return "review_job_version_migration"
+    if item["suggested_action"] == "verify_hard_gate_and_missing_information":
+        return "verify_hard_gate_human_review"
+    return "recommend_interview_human_review"
 
 
 def execute_cycle(
@@ -91,6 +111,10 @@ def execute_cycle(
     if recommendation_input.get("schema_version") != "2.0":
         raise ValueError("recommendation_input must use schema_version 2.0")
     result = recommend(recommendation_input)
+    action_items = [
+        *result["recommendations"],
+        *result.get("review_actions", []),
+    ]
     recipient_ref = payload.get("notification_recipient_ref")
     if result["notifications"] and (
         not isinstance(recipient_ref, str) or not recipient_ref.strip()
@@ -105,7 +129,7 @@ def execute_cycle(
             "counts": {
                 "actions_created": 0,
                 "notifications_created": 0,
-                "planned_actions": len(result["recommendations"]),
+                "planned_actions": len(action_items),
                 "planned_notifications": len(result["notifications"]),
             },
         }
@@ -134,13 +158,13 @@ def execute_cycle(
     try:
         start_run(connection, run_id, str(payload["mode"]))
         run_started = True
-        for item in result["recommendations"]:
+        for item in action_items:
             action_payload = redacted_action_payload(item)
             before = connection.total_changes
             action = enqueue_action(
                 connection,
                 action_id=item["action_id"],
-                action_type="recommend_interview_human_review",
+                action_type=action_type(item),
                 target_id=item["application_id"],
                 fingerprint=item["idempotency_key"],
                 payload=action_payload,
@@ -163,7 +187,7 @@ def execute_cycle(
         counts = {
             "actions_created": actions_created,
             "notifications_created": notifications_created,
-            "planned_actions": len(result["recommendations"]),
+            "planned_actions": len(action_items),
             "planned_notifications": len(result["notifications"]),
         }
         finish_run(connection, run_id, "success", counts=counts)

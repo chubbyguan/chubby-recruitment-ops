@@ -16,9 +16,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 from zoneinfo import ZoneInfo
 
 from state_store import (
@@ -141,44 +142,108 @@ def private_json_write(path: Path, payload: dict[str, Any]) -> None:
 
 
 class LarkCli:
-    def __init__(self, binary: str = "lark-cli", timeout_seconds: int = 60) -> None:
+    RETRYABLE_CODES = {"429", "800004135"}
+    RETRYABLE_SUBTYPES = {
+        "rate_limited",
+        "timeout",
+        "temporarily_unavailable",
+    }
+
+    def __init__(
+        self,
+        binary: str = "lark-cli",
+        timeout_seconds: int = 60,
+        max_attempts: int = 4,
+        retry_base_seconds: float = 1,
+        retry_max_seconds: float = 8,
+        sleeper: Callable[[float], None] = time.sleep,
+    ) -> None:
         resolved = shutil.which(binary)
         if not resolved:
             raise AdapterError(f"lark-cli not found: {binary}")
+        if max_attempts <= 0:
+            raise ValueError("max_attempts must be positive")
+        if retry_base_seconds < 0 or retry_max_seconds < 0:
+            raise ValueError("retry delays must not be negative")
         self.binary = resolved
         self.timeout_seconds = timeout_seconds
+        self.max_attempts = max_attempts
+        self.retry_base_seconds = retry_base_seconds
+        self.retry_max_seconds = retry_max_seconds
+        self.sleeper = sleeper
+
+    @classmethod
+    def is_retryable_error(
+        cls,
+        code: Any,
+        subtype: Any,
+        message: Any,
+    ) -> bool:
+        normalized_code = str(code).strip()
+        normalized_subtype = str(subtype).strip().lower()
+        normalized_message = clean_text(message, 600).lower()
+        return (
+            normalized_code in cls.RETRYABLE_CODES
+            or normalized_subtype in cls.RETRYABLE_SUBTYPES
+            or "too many requests" in normalized_message
+            or "rate limit" in normalized_message
+            or "temporarily unavailable" in normalized_message
+        )
+
+    def wait_before_retry(self, attempt: int) -> None:
+        delay = min(
+            self.retry_base_seconds * (2 ** max(0, attempt - 1)),
+            self.retry_max_seconds,
+        )
+        if delay:
+            self.sleeper(delay)
 
     def run(self, arguments: list[str]) -> dict[str, Any]:
         environment = os.environ.copy()
         environment["LARKSUITE_CLI_NO_UPDATE_NOTIFIER"] = "1"
         environment["LARKSUITE_CLI_NO_SKILLS_NOTIFIER"] = "1"
-        try:
-            result = subprocess.run(
-                [self.binary, *arguments],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=self.timeout_seconds,
-                env=environment,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise AdapterError(
-                f"lark-cli timeout after {self.timeout_seconds}s"
-            ) from exc
-        raw = result.stdout.strip() or result.stderr.strip()
-        try:
-            envelope = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise AdapterError(
-                f"lark-cli returned non-JSON output (exit {result.returncode})"
-            ) from exc
-        if result.returncode != 0 or not envelope.get("ok"):
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                result = subprocess.run(
+                    [self.binary, *arguments],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=self.timeout_seconds,
+                    env=environment,
+                )
+            except subprocess.TimeoutExpired as exc:
+                if attempt < self.max_attempts:
+                    self.wait_before_retry(attempt)
+                    continue
+                raise AdapterError(
+                    f"lark-cli timeout after {self.timeout_seconds}s "
+                    f"({self.max_attempts} attempts)"
+                ) from exc
+            raw = result.stdout.strip() or result.stderr.strip()
+            try:
+                envelope = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise AdapterError(
+                    f"lark-cli returned non-JSON output (exit {result.returncode})"
+                ) from exc
+            if result.returncode == 0 and envelope.get("ok"):
+                return envelope
             error = as_object(envelope.get("error"))
             code = error.get("code", "unknown")
             subtype = error.get("subtype", "unknown")
             message = clean_text(error.get("message"), 600) or "connector call failed"
-            raise AdapterError(f"{subtype}({code}): {message}")
-        return envelope
+            if (
+                attempt < self.max_attempts
+                and self.is_retryable_error(code, subtype, message)
+            ):
+                self.wait_before_retry(attempt)
+                continue
+            raise AdapterError(
+                f"{subtype}({code}): {message} "
+                f"(attempt {attempt}/{self.max_attempts})"
+            )
+        raise AdapterError("lark-cli retry loop ended unexpectedly")
 
     def api_get(
         self,
@@ -1170,7 +1235,17 @@ def main(argv: list[str] | None = None) -> int:
         timeout_seconds = int(
             as_object(config.get("execution")).get("connector_timeout_seconds", 60)
         )
-        cli = LarkCli(timeout_seconds=timeout_seconds)
+        execution = as_object(config.get("execution"))
+        cli = LarkCli(
+            timeout_seconds=timeout_seconds,
+            max_attempts=int(execution.get("connector_max_attempts", 4)),
+            retry_base_seconds=float(
+                execution.get("connector_retry_base_seconds", 1)
+            ),
+            retry_max_seconds=float(
+                execution.get("connector_retry_max_seconds", 8)
+            ),
+        )
         client = FeishuHireClient(
             cli,
             identity=clean_text(hire.get("identity"), 20) or "bot",

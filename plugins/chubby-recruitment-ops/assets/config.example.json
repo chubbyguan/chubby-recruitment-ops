@@ -155,6 +155,9 @@
     "action_lease_seconds": 900,
     "notification_lease_seconds": 900,
     "connector_timeout_seconds": 60,
+    "connector_max_attempts": 4,
+    "connector_retry_base_seconds": 1,
+    "connector_retry_max_seconds": 8,
     "require_distinct_lifecycle_tables": true
   },
   "recommendation_policy": {

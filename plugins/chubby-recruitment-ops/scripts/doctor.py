@@ -46,6 +46,9 @@ REQUIRED_CONTROLS = {
 OPTIONAL_CONFIG_PATHS = {
     "connectors.feishu_hire",
     "schedule.hire_sync_hours",
+    "execution.connector_max_attempts",
+    "execution.connector_retry_base_seconds",
+    "execution.connector_retry_max_seconds",
 }
 EXPECTED_SCHEMA: dict[str, Any] = {
     "schema_version": None,
@@ -131,6 +134,9 @@ EXPECTED_SCHEMA: dict[str, Any] = {
         "action_lease_seconds": None,
         "notification_lease_seconds": None,
         "connector_timeout_seconds": None,
+        "connector_max_attempts": None,
+        "connector_retry_base_seconds": None,
+        "connector_retry_max_seconds": None,
         "require_distinct_lifecycle_tables": None,
     },
     "recommendation_policy": {
@@ -543,6 +549,22 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
         "notification_lease_seconds",
         "connector_timeout_seconds",
     ):
+        value = execution.get(field)
+        if type(value) is not int or value <= 0:
+            issues.append(
+                issue(
+                    "error",
+                    "execution-policy",
+                    f"execution.{field} must be a positive integer",
+                )
+            )
+    for field in (
+        "connector_max_attempts",
+        "connector_retry_base_seconds",
+        "connector_retry_max_seconds",
+    ):
+        if field not in execution:
+            continue
         value = execution.get(field)
         if type(value) is not int or value <= 0:
             issues.append(

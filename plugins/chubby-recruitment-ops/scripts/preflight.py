@@ -18,6 +18,7 @@ REQUIRED_PACKAGE_PATHS = (
     "assets/config.example.json",
     "assets/feishu-base-schema.json",
     "scripts/doctor.py",
+    "scripts/hash_attachment.py",
     "scripts/init_workspace.py",
     "scripts/migrate_config_v3.py",
     "scripts/migrate_config_v4.py",
