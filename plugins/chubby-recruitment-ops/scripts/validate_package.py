@@ -155,6 +155,7 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "scripts" / "migrate_config_v4.py",
         plugin_root / "scripts" / "run_cycle.py",
         plugin_root / "scripts" / "state_store.py",
+        plugin_root / "scripts" / "sync_feishu_hire.py",
         plugin_root / "scripts" / "validate_base_mapping.py",
         plugin_root / "scripts" / "reconcile_interviews.py",
         plugin_root / "scripts" / "recommend_interviews.py",

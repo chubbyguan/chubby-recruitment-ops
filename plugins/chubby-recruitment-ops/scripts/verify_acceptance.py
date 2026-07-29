@@ -15,6 +15,7 @@ from recommend_interviews import recommend
 from reconcile_interviews import reconcile
 from render_digest import render
 from run_cycle import execute_cycle
+from sync_feishu_hire import normalize_interview
 from state_store import (
     attachment_seen,
     claim_notification,
@@ -78,6 +79,34 @@ def main() -> int:
                 "processed attachment must be seen",
             )
             checks.append("attachment hash idempotency")
+
+            hire_interview = normalize_interview(
+                {
+                    "id": "SYNTHETIC-HIRE-INTERVIEW-001",
+                    "application_id": "SYNTHETIC-HIRE-APPLICATION-001",
+                    "begin_time": 4070908800000,
+                    "end_time": 4070910600000,
+                    "interview_round_summary": 4,
+                },
+                candidate_id="SYNTHETIC-HIRE-TALENT-001",
+                internal_job_id="SYNTHETIC-ROLE-01",
+                job_version="SYNTHETIC-HIRE-JOB-V1",
+                now_ms=4070912400000,
+            )
+            check(
+                hire_interview["fact_status"] == "completed",
+                "submitted Hire interview must be a completed source fact",
+            )
+            check(
+                hire_interview["human_decision_status"] == "pending",
+                "Hire evaluation must not become a human decision",
+            )
+            check(
+                hire_interview["actual_start_at"] is None
+                and hire_interview["actual_end_at"] is None,
+                "planned Hire time must not be copied into actual interview time",
+            )
+            checks.append("Feishu Hire fact normalization and human-decision boundary")
             connection.close()
 
             config = json.loads(
@@ -427,7 +456,7 @@ def main() -> int:
                 "production_ready": False,
                 "integration_acceptance": "not_run",
                 "checks": checks,
-                "next_step": "Run controlled Gmail and Feishu Base, Calendar, VC, and Minutes probes; then verify Base upsert/readback, duplicate replay, and digest send/readback.",
+                "next_step": "Run controlled Gmail, Feishu Hire, Base, Calendar, VC, and Minutes probes; then verify Base upsert/readback, duplicate replay, and digest send/readback.",
             },
             ensure_ascii=False,
             indent=2,

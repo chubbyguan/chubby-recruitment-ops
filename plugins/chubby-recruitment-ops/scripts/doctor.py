@@ -43,6 +43,10 @@ REQUIRED_CONTROLS = {
     "auto_merge_candidates",
     "auto_mark_interview_passed",
 }
+OPTIONAL_CONFIG_PATHS = {
+    "connectors.feishu_hire",
+    "schedule.hire_sync_hours",
+}
 EXPECTED_SCHEMA: dict[str, Any] = {
     "schema_version": None,
     "department_id": None,
@@ -93,6 +97,17 @@ EXPECTED_SCHEMA: dict[str, Any] = {
             "digest_recipient_id": None,
             "tables": {table_name: None for table_name in REQUIRED_TABLES},
         },
+        "feishu_hire": {
+            "enabled": None,
+            "adapter": None,
+            "identity": None,
+            "base_identity": None,
+            "source": None,
+            "page_size": None,
+            "lookback_days": None,
+            "watermark_overlap_seconds": None,
+            "mapped_jobs": None,
+        },
     },
     "job_policy": {
         "source": None,
@@ -103,6 +118,7 @@ EXPECTED_SCHEMA: dict[str, Any] = {
     "schedule": {
         "inbox_hours": None,
         "interview_reconcile_hours": None,
+        "hire_sync_hours": None,
         "digest_hour": None,
         "decision_digest_hour": None,
         "enabled": None,
@@ -160,7 +176,11 @@ def validate_shape(
         issues.append(issue("error", "config-type", f"{path or 'config'} must be an object"))
         return {}
     unknown = sorted(set(value) - set(schema))
-    missing = sorted(set(schema) - set(value))
+    missing = sorted(
+        key
+        for key in set(schema) - set(value)
+        if f"{path}{key}".rstrip(".") not in OPTIONAL_CONFIG_PATHS
+    )
     for key in unknown:
         issues.append(issue("error", "unknown-key", f"unknown config key: {path}{key}"))
     for key in missing:
@@ -380,6 +400,74 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
             )
         )
 
+    if "feishu_hire" in connectors:
+        hire = as_object(connectors.get("feishu_hire"))
+        if type(hire.get("enabled")) is not bool:
+            issues.append(
+                issue("error", "feishu-hire", "connectors.feishu_hire.enabled must be boolean")
+            )
+        if hire.get("adapter") != "lark-cli":
+            issues.append(
+                issue("error", "feishu-hire", "Feishu Hire adapter must be lark-cli")
+            )
+        if hire.get("identity") != "bot":
+            issues.append(
+                issue("error", "feishu-hire", "Feishu Hire reads must use bot identity")
+            )
+        if hire.get("base_identity") not in {"user", "bot"}:
+            issues.append(
+                issue("error", "feishu-hire", "base_identity must be user or bot")
+            )
+        if hire.get("source") != "feishu_hire_v1":
+            issues.append(
+                issue("error", "feishu-hire", "source must be feishu_hire_v1")
+            )
+        for field in ("page_size", "lookback_days", "watermark_overlap_seconds"):
+            value = hire.get(field)
+            if type(value) is not int or value <= 0:
+                issues.append(
+                    issue(
+                        "error",
+                        "feishu-hire",
+                        f"connectors.feishu_hire.{field} must be a positive integer",
+                    )
+                )
+        mappings = as_object(hire.get("mapped_jobs"))
+        if hire.get("enabled") is True and not mappings:
+            issues.append(
+                issue("error", "feishu-hire", "enabled Feishu Hire connector needs mapped_jobs")
+            )
+        for source_job_id, raw_mapping in mappings.items():
+            mapping = as_object(raw_mapping)
+            if not isinstance(source_job_id, str) or not source_job_id.strip():
+                issues.append(
+                    issue("error", "feishu-hire", "mapped_jobs keys must be non-empty strings")
+                )
+            if not isinstance(mapping.get("internal_job_id"), str) or not mapping[
+                "internal_job_id"
+            ].strip():
+                issues.append(
+                    issue(
+                        "error",
+                        "feishu-hire",
+                        "every mapped job needs internal_job_id",
+                    )
+                )
+            if not isinstance(mapping.get("expected_title"), str) or not mapping[
+                "expected_title"
+            ].strip():
+                issues.append(
+                    issue(
+                        "error",
+                        "feishu-hire",
+                        "every mapped job needs expected_title for drift detection",
+                    )
+                )
+        if hire.get("enabled") is True and not shutil.which("lark-cli"):
+            issues.append(
+                issue("error", "feishu-hire", "enabled Feishu Hire connector needs lark-cli")
+            )
+
     schedule = as_object(config.get("schedule"))
     hours = schedule.get("inbox_hours", [])
     if (
@@ -401,6 +489,16 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
                 "interview_reconcile_hours must contain valid hours",
             )
         )
+    if "hire_sync_hours" in schedule:
+        hire_hours = schedule.get("hire_sync_hours", [])
+        if (
+            not isinstance(hire_hours, list)
+            or not hire_hours
+            or any(type(hour) is not int or not 0 <= hour <= 23 for hour in hire_hours)
+        ):
+            issues.append(
+                issue("error", "schedule", "hire_sync_hours must contain valid hours")
+            )
     for field in ("digest_hour", "decision_digest_hour"):
         hour = schedule.get(field)
         if type(hour) is not int or not 0 <= hour <= 23:

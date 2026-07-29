@@ -24,6 +24,7 @@ REQUIRED_PACKAGE_PATHS = (
     "scripts/run_cycle.py",
     "scripts/reconcile_interviews.py",
     "scripts/state_store.py",
+    "scripts/sync_feishu_hire.py",
     "scripts/validate_base_mapping.py",
     "scripts/validate_interview_evaluation.py",
     "skills/recruitment-interview-review/SKILL.md",

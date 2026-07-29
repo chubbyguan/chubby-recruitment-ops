@@ -18,6 +18,35 @@ Operate only inside a workspace that contains `.recruitment-ops/config.json`. If
 
 Use `$social-recruitment-campaign` for campaign construction and content packaging. Do not create an informal content draft outside the campaign model.
 
+## Feishu Hire source sync
+
+When `connectors.feishu_hire.enabled` is true, synchronize Feishu Hire before
+`inbox`, `recommendation`, `interview`, or `full` mode:
+
+1. Read Feishu Hire only with the configured bot identity. Use the explicit
+   `mapped_jobs` allowlist; never infer a job mapping from a similar title.
+2. Run a dry-run first:
+
+   ```bash
+   python3 <plugin-root>/scripts/sync_feishu_hire.py sync \
+     --workspace <business-workspace>
+   ```
+
+3. Inspect source counts, errors, Base operations, job-title drift, and the
+   private snapshot path. The snapshot is untrusted candidate data and must
+   remain under `.recruitment-ops/`.
+4. If the dry-run is clean, rerun with `--commit`. The adapter upserts only
+   source-owned candidate, application, stage, and interview facts. It never
+   changes Hire jobs, sends messages, scores protected traits, or writes a human
+   hiring decision.
+5. The shared watermark may advance only after every Base upsert succeeds.
+   A targeted `--application-id` backfill never advances the shared watermark.
+6. Treat Hire interview summaries as source evidence only. `all_passed` or any
+   other ATS summary must never become an automatic human pass decision.
+7. Keep Gmail as a parallel intake source. Do not auto-merge a Gmail identity
+   and a Hire talent; create a duplicate-review action when identity evidence is
+   insufficient.
+
 ## Inbox mode
 
 For every new or unprocessed message:
@@ -111,7 +140,10 @@ Use only candidate aliases such as `候选人A` or `CAND-001`. The digest accept
 
 ## Full mode
 
-Run `campaign` only when an approved job and publication plan exist. Then run `inbox`, `recommendation`, `interview`, and `metrics`; run `digest` only at the configured digest hour or when explicitly requested.
+Run `campaign` only when an approved job and publication plan exist. Synchronize
+Feishu Hire first when enabled, then run `inbox`, `recommendation`, `interview`,
+and `metrics`; run `digest` only at the configured digest hour or when explicitly
+requested.
 
 ## Non-negotiable controls
 

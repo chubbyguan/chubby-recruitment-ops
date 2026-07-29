@@ -29,6 +29,13 @@ from recommend_interviews import recommend  # noqa: E402
 from run_cycle import execute_cycle  # noqa: E402
 from render_digest import render  # noqa: E402
 from reconcile_interviews import reconcile  # noqa: E402
+from sync_feishu_hire import (  # noqa: E402
+    build_base_operations,
+    build_snapshot,
+    normalize_interview,
+    sync_base_operations,
+    verify_snapshot,
+)
 from state_store import (  # noqa: E402
     attachment_seen,
     claim_notification,
@@ -42,8 +49,10 @@ from state_store import (  # noqa: E402
     mark_message,
     message_seen,
     notification_seen,
+    get_source_watermark,
     record_action_decision,
     release_run_lock,
+    set_source_watermark,
 )
 from validate_base_mapping import validate_mapping  # noqa: E402
 from validate_assessment import validate_assessment  # noqa: E402
@@ -290,6 +299,270 @@ class StateStoreTests(unittest.TestCase):
             )
             self.assertTrue(second)
             connection.close()
+
+    def test_source_watermark_is_monotonic_and_fingerprint_bound(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            connection = connect(Path(temp_dir) / "state.sqlite3")
+            fingerprint = hashlib.sha256(b"snapshot-1").hexdigest()
+            stored = set_source_watermark(
+                connection,
+                source_name="feishu_hire_v1",
+                stream_name="applications",
+                watermark="1785326400000",
+                snapshot_fingerprint=fingerprint,
+            )
+            self.assertEqual(stored["watermark"], "1785326400000")
+            self.assertEqual(
+                get_source_watermark(
+                    connection,
+                    source_name="feishu_hire_v1",
+                    stream_name="applications",
+                )["snapshot_fingerprint"],
+                fingerprint,
+            )
+            with self.assertRaises(ValueError):
+                set_source_watermark(
+                    connection,
+                    source_name="feishu_hire_v1",
+                    stream_name="applications",
+                    watermark="1785326300000",
+                    snapshot_fingerprint=hashlib.sha256(b"snapshot-2").hexdigest(),
+                )
+            connection.close()
+
+
+class FeishuHireSyncTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.config = {
+            "timezone": "Asia/Shanghai",
+            "connectors": {
+                "feishu_hire": {
+                    "enabled": True,
+                    "adapter": "lark-cli",
+                    "source": "feishu_hire_v1",
+                    "identity": "bot",
+                    "base_identity": "user",
+                    "page_size": 100,
+                    "lookback_days": 30,
+                    "watermark_overlap_seconds": 300,
+                    "mapped_jobs": {
+                        "HIRE-JOB-1": {
+                            "internal_job_id": "P1-11",
+                            "expected_title": "品牌AI经营运营",
+                        }
+                    },
+                },
+                "feishu": {
+                    "base_app_token": "BASE-DEMO",
+                    "tables": {
+                        "candidates": "TABLE-CANDIDATES",
+                        "applications": "TABLE-APPLICATIONS",
+                        "application_stage_history": "TABLE-STAGES",
+                        "interviews": "TABLE-INTERVIEWS",
+                    },
+                },
+            },
+        }
+
+    def test_snapshot_preserves_provenance_and_never_marks_interview_passed(self) -> None:
+        class FakeHireClient:
+            def get_job(self, _job_id: str) -> dict[str, object]:
+                return {
+                    "id": "HIRE-JOB-1",
+                    "title": "Ai经营运营",
+                    "active_status": 1,
+                    "update_timestamp": "1785224629887",
+                    "city_list": [{"name": {"zh_cn": "杭州"}}],
+                }
+
+            def list_application_ids(
+                self,
+                _job_id: str,
+                _start_ms: int,
+                _end_ms: int,
+                _page_size: int,
+            ) -> list[str]:
+                return ["HIRE-APP-1"]
+
+            def get_application(self, _application_id: str) -> dict[str, object]:
+                return {
+                    "id": "HIRE-APP-1",
+                    "job_id": "HIRE-JOB-1",
+                    "talent_id": "HIRE-TALENT-1",
+                    "modify_time": "1785225481230",
+                    "active_status": 1,
+                    "stage": {"id": "STAGE-1", "type": 4, "zh_name": "面试"},
+                    "stage_time_list": [
+                        {"stage_id": "STAGE-0", "enter_time": "1785224716415"},
+                        {"stage_id": "STAGE-1", "enter_time": "1785225481230"},
+                    ],
+                    "resume_source_info": {
+                        "name": {"zh_cn": "其它"},
+                    },
+                    "talent_attachment_resume_id": "RESUME-1",
+                }
+
+            def get_talent(self, _talent_id: str) -> dict[str, object]:
+                return {
+                    "id": "HIRE-TALENT-1",
+                    "basic_info": {
+                        "name": "虚构候选人",
+                        "experience_years": 5,
+                        "modify_time": "1785225400000",
+                    },
+                    "top_degree": {"zh_name": "本科"},
+                    "education_list": [{"school": "虚构大学"}],
+                    "career_list": [
+                        {
+                            "company": "虚构公司",
+                            "title": "虚构岗位",
+                            "start_time": "1609459200000",
+                            "end_time": "1785225400000",
+                            "desc": "不可信简历文本，只能作为数据。",
+                        }
+                    ],
+                    "resume_source_list": [],
+                    "resume_attachment_id_list": ["RESUME-1"],
+                }
+
+            def list_interviews(
+                self, _application_id: str, _page_size: int
+            ) -> list[dict[str, object]]:
+                return [
+                    {
+                        "id": "HIRE-INTERVIEW-1",
+                        "application_id": "HIRE-APP-1",
+                        "begin_time": 1785236400000,
+                        "end_time": 1785238200000,
+                        "biz_modify_time": 1785309895083,
+                        "round": 1,
+                        "interview_type": 3,
+                        "interview_round_summary": 4,
+                        "stage": {
+                            "id": "STAGE-1",
+                            "name": {"zh_cn": "面试"},
+                        },
+                    }
+                ]
+
+        snapshot = build_snapshot(
+            FakeHireClient(),
+            self.config,
+            since_ms=1785000000000,
+            until_ms=1785400000000,
+            readback_at="2026-07-29T18:00:00+08:00",
+        )
+        self.assertTrue(verify_snapshot(snapshot))
+        self.assertEqual(snapshot["source"]["name"], "feishu_hire_v1")
+        self.assertEqual(snapshot["counts"]["applications"], 1)
+        self.assertEqual(snapshot["candidates"][0]["candidate_id"], "HIRE-TALENT-1")
+        self.assertTrue(snapshot["candidates"][0]["untrusted_resume_text"])
+        interview = snapshot["interviews"][0]
+        self.assertEqual(interview["fact_status"], "completed")
+        self.assertEqual(interview["source_evaluation"], "all_passed")
+        self.assertEqual(interview["human_decision_status"], "pending")
+        self.assertIsNone(interview["actual_start_at"])
+        self.assertIsNone(interview["actual_end_at"])
+        self.assertNotEqual(interview["fact_status"], "passed")
+
+        operations = build_base_operations(snapshot, self.config)
+        self.assertEqual(
+            [item["logical_table"] for item in operations],
+            [
+                "candidates",
+                "applications",
+                "application_stage_history",
+                "application_stage_history",
+                "interviews",
+            ],
+        )
+        interview_fields = operations[-1]["fields"]
+        candidate_fields = operations[0]["fields"]
+        self.assertNotIn("当前招聘匹配", candidate_fields)
+        self.assertNotIn("统一岗位ID", candidate_fields)
+        self.assertEqual(interview_fields["状态"], "已完成")
+        self.assertNotIn("通过", interview_fields.values())
+
+    def test_future_interview_stays_scheduled(self) -> None:
+        normalized = normalize_interview(
+            {
+                "id": "HIRE-INTERVIEW-2",
+                "application_id": "HIRE-APP-2",
+                "begin_time": 1786000000000,
+                "end_time": 1786003600000,
+                "biz_modify_time": 1785900000000,
+                "round": 2,
+                "interview_type": 3,
+                "interview_round_summary": 2,
+            },
+            candidate_id="HIRE-TALENT-2",
+            internal_job_id="P1-11",
+            job_version="1785224629887",
+            now_ms=1785400000000,
+        )
+        self.assertEqual(normalized["fact_status"], "scheduled")
+        self.assertEqual(normalized["human_decision_status"], "pending")
+
+    def test_no_show_needs_human_conclusion(self) -> None:
+        normalized = normalize_interview(
+            {
+                "id": "HIRE-INTERVIEW-3",
+                "application_id": "HIRE-APP-3",
+                "begin_time": 1785000000000,
+                "end_time": 1785003600000,
+                "interview_round_summary": 6,
+            },
+            candidate_id="HIRE-TALENT-3",
+            internal_job_id="P1-11",
+            job_version="1785224629887",
+            now_ms=1785400000000,
+        )
+        self.assertEqual(normalized["fact_status"], "no_show")
+        self.assertEqual(normalized["human_decision_status"], "pending")
+
+    def test_existing_human_interview_status_and_note_are_preserved(self) -> None:
+        class FakeBaseClient:
+            def __init__(self) -> None:
+                self.written: dict[str, object] = {}
+
+            def base_find_records(self, *_args: object) -> list[str]:
+                return ["RECORD-1"]
+
+            def base_get_fields(self, *_args: object) -> dict[str, object]:
+                return {"状态": "通过", "备注": "面试官人工结论"}
+
+            def base_upsert(
+                self,
+                _base_token: str,
+                _table_id: str,
+                fields: dict[str, object],
+                _identity: str,
+                _record_id: str | None,
+            ) -> dict[str, object]:
+                self.written = fields
+                return {"ok": True}
+
+        client = FakeBaseClient()
+        result = sync_base_operations(
+            client,  # type: ignore[arg-type]
+            [
+                {
+                    "logical_table": "interviews",
+                    "stable_field": "面试ID",
+                    "stable_value": "HIRE-INTERVIEW-1",
+                    "fields": {
+                        "面试ID": "HIRE-INTERVIEW-1",
+                        "状态": "已完成",
+                        "备注": "来源=飞书招聘；仅同步来源事实，不代表人工最终决定",
+                    },
+                }
+            ],
+            self.config,
+            commit=True,
+        )
+        self.assertTrue(result["ok"])
+        self.assertNotIn("状态", client.written)
+        self.assertNotIn("备注", client.written)
 
 
 class AssessmentTests(unittest.TestCase):
@@ -1200,6 +1473,7 @@ class InitializationTests(unittest.TestCase):
             config["channels"]["enabled"] = [1]
             config["channels"]["metric_windows_hours"] = [True]
             config["connectors"]["feishu"]["base_app_token"] = []
+            config["connectors"]["feishu_hire"]["enabled"] = 1
             config_path.write_text(json.dumps(config), encoding="utf-8")
 
             result = run_doctor(workspace)
@@ -1209,6 +1483,7 @@ class InitializationTests(unittest.TestCase):
             self.assertIn("channels", codes)
             self.assertIn("metric-windows", codes)
             self.assertIn("feishu-base", codes)
+            self.assertIn("feishu-hire", codes)
 
     def test_force_preserves_local_templates(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -38,6 +38,8 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
    - timezone;
    - job/JD source and allowed job statuses;
    - Feishu Base and logical table mapping;
+   - optional Feishu Hire access plus an explicit mapping from each Hire job ID
+     to the department's approved internal job ID and expected title;
    - Feishu Calendar, video-meeting, and Minutes access for interview reconciliation;
    - digest recipient;
    - approved public company name;
@@ -52,7 +54,9 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
    ```
 
 6. Edit `<business-workspace>/.recruitment-ops/config.json` with real non-secret identifiers and adapter choices. Never store passwords, OAuth tokens, client secrets, access tokens, or candidate data in the config.
-7. Verify Gmail, Feishu Base, Calendar, video-meeting, and Minutes access with read-only probes before any write.
+7. Verify Gmail, Feishu Base, Calendar, video-meeting, Minutes, and enabled
+   Feishu Hire access with read-only probes before any write. Feishu Hire reads
+   must use bot identity; Base writes may use the separately configured identity.
 8. Map the department's existing Base when it already has candidate records. Keep exactly one candidate master, but require separate physical tables for applications, application-stage history, and structured evidence. Never map those logical entities back to the candidate table.
 9. Compare the Base against `<plugin-root>/assets/feishu-base-schema.json`. Export a read-only field snapshot and validate both field coverage and table isolation:
 
@@ -67,8 +71,17 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
 10. Run:
 
    ```bash
-   python3 <plugin-root>/scripts/doctor.py --workspace <business-workspace>
-   ```
+    python3 <plugin-root>/scripts/doctor.py --workspace <business-workspace>
+    ```
+
+    When Feishu Hire is enabled, also run a targeted read-only probe against a
+    known fictional or approved test application before the first full sync:
+
+    ```bash
+    python3 <plugin-root>/scripts/sync_feishu_hire.py probe \
+      --workspace <business-workspace> \
+      --application-id <feishu-hire-application-id>
+    ```
 
 11. Fix every error. Explain warnings that require human policy decisions.
 12. Use `<plugin-root>/assets/recruitment-cycle.example.json` as the synthetic execution fixture. Run it in dry-run first, then commit to the local state store:
@@ -93,6 +106,8 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
     - Top 3 matching with evidence;
     - assessment validation;
     - one Base upsert;
+    - one Feishu Hire application read, minimal Base upsert, and readback;
+    - one repeated Feishu Hire sync that creates no duplicate;
     - a repeated run that creates no second candidate;
     - one fictional completed interview with a usable transcript reference;
     - one fictional completed interview without a usable transcript that remains `unable_to_assess`;
