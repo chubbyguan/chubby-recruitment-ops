@@ -111,6 +111,20 @@ The validated assessment is a structured decision index, not a narrative. It may
 
 A high score does not override missing work samples or conflicting facts. When information is incomplete, prefer `request_more_info` over forcing a low score.
 
+## High-score candidate interview recommendation
+
+Run this stage after inbox processing and again when producing the decision digest.
+
+- Default recommendation threshold is 80, but score alone is never sufficient.
+- Require an open current job version, a traceable candidate ID, a usable resume, complete evidence references, `hr_screen`, no unresolved missing materials, and no pending duplicate review.
+- Exclude candidates with a formal interview record or a non-canceled Calendar Event.
+- A screening-import row is not proof of an interview.
+- When the candidate stage says interview but interview and Calendar facts are both absent, create a fact-confirmation warning before any invitation.
+- Conditional jobs are talent mapping only. Frozen, closed, filled, or unknown jobs cannot generate interview recommendations.
+- Build the recommendation idempotency key from candidate ID, job/version, score, action, evidence, risks, and missing-material codes.
+- Send only new or changed keys. Create a pending human decision action and store the Feishu message ID.
+- Never auto-invite, schedule, reject, or mark the candidate passed.
+
 ## Protected attributes
 
 Do not extract or score age, date of birth, sex, gender, photo or appearance, marital or fertility status, ethnicity, nationality, native place, household registration, disability, religion, political affiliation, or family information.

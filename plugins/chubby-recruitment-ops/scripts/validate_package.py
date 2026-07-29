@@ -144,6 +144,7 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "assets" / "channel-playbook.md",
         plugin_root / "assets" / "digest-input.example.json",
         plugin_root / "assets" / "interview-reconciliation.example.json",
+        plugin_root / "assets" / "interview-recommendation.example.json",
         plugin_root / "assets" / "interview-evaluation.example.json",
         plugin_root / "assets" / "interview-scorecard-template.md",
         plugin_root / "assets" / "integration-acceptance-template.json",
@@ -151,6 +152,7 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "scripts" / "preflight.py",
         plugin_root / "scripts" / "migrate_config_v3.py",
         plugin_root / "scripts" / "reconcile_interviews.py",
+        plugin_root / "scripts" / "recommend_interviews.py",
         plugin_root / "scripts" / "validate_interview_evaluation.py",
         plugin_root / "scripts" / "validate_campaign.py",
     ]
@@ -174,6 +176,7 @@ def validate(repo_root: Path) -> list[str]:
     load_json(plugin_root / "assets" / "assessment.example.json", errors)
     load_json(plugin_root / "assets" / "digest-input.example.json", errors)
     load_json(plugin_root / "assets" / "interview-reconciliation.example.json", errors)
+    load_json(plugin_root / "assets" / "interview-recommendation.example.json", errors)
     load_json(plugin_root / "assets" / "interview-evaluation.example.json", errors)
     load_json(plugin_root / "assets" / "integration-acceptance-template.json", errors)
 

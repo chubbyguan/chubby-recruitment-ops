@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "minimum_score": 80,
+  "jobs": [
+    {
+      "job_id": "DEMO-AI-01",
+      "job_version": "DEMO-V1",
+      "gate": "open"
+    },
+    {
+      "job_id": "DEMO-DATA-01",
+      "job_version": "DEMO-V1",
+      "gate": "frozen"
+    }
+  ],
+  "candidates": [
+    {
+      "candidate_id": "CAND-DEMO-001",
+      "job_id": "DEMO-AI-01",
+      "job_version": "DEMO-V1",
+      "score": 86,
+      "screening_recommendation": "hr_screen",
+      "information_complete": true,
+      "has_resume": true,
+      "duplicate_review_pending": false,
+      "candidate_stage": "resume_received",
+      "evidence_refs": [
+        "EVIDENCE-DEMO-001",
+        "EVIDENCE-DEMO-002"
+      ],
+      "risk_codes": [
+        "owner_scope_unverified"
+      ],
+      "missing_material_codes": []
+    },
+    {
+      "candidate_id": "CAND-DEMO-002",
+      "job_id": "DEMO-AI-01",
+      "job_version": "DEMO-V1",
+      "score": 82,
+      "screening_recommendation": "hr_screen",
+      "information_complete": false,
+      "has_resume": true,
+      "duplicate_review_pending": false,
+      "candidate_stage": "resume_received",
+      "evidence_refs": [],
+      "risk_codes": [],
+      "missing_material_codes": [
+        "work_sample"
+      ]
+    }
+  ],
+  "interviews": [],
+  "calendar_events": [],
+  "previous_sent_keys": []
+}
