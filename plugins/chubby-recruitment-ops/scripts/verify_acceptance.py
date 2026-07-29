@@ -14,13 +14,18 @@ from build_campaign import build_campaign, content_hash
 from recommend_interviews import recommend
 from reconcile_interviews import reconcile
 from render_digest import render
+from run_cycle import execute_cycle
 from state_store import (
     attachment_seen,
+    claim_notification,
     claim_message,
+    complete_notification,
     connect,
+    list_notifications,
     mark_attachment,
     mark_message,
     message_seen,
+    record_action_decision,
 )
 from validate_assessment import validate_assessment
 from validate_campaign import validate_campaign
@@ -253,6 +258,57 @@ def main() -> int:
                 "recommendation replay must not create a duplicate notification",
             )
             checks.append("high-score no-interview recommendation and notification idempotency")
+
+            cycle_input = json.loads(
+                (
+                    plugin_root
+                    / "assets"
+                    / "recruitment-cycle.example.json"
+                ).read_text(encoding="utf-8")
+            )
+            first_cycle = execute_cycle(cycle_input, db_path, commit=True)
+            second_cycle = execute_cycle(cycle_input, db_path, commit=True)
+            check(
+                first_cycle["counts"]["actions_created"] == 1
+                and first_cycle["counts"]["notifications_created"] == 1,
+                "first v5 cycle must create one action and one notification",
+            )
+            check(
+                second_cycle["counts"]["actions_created"] == 0
+                and second_cycle["counts"]["notifications_created"] == 0,
+                "v5 cycle replay must remain idempotent",
+            )
+            connection = connect(db_path)
+            pending = list_notifications(connection)
+            check(len(pending) == 1, "one notification must be pending")
+            notification_id = pending[0]["notification_id"]
+            notification_lease = claim_notification(connection, notification_id)
+            check(bool(notification_lease), "notification claim must succeed")
+            complete_notification(
+                connection,
+                notification_id,
+                str(notification_lease),
+                status="sent",
+                external_message_id="SYNTHETIC-MESSAGE-ID",
+            )
+            recommendation_item = first_cycle["recommendation"][
+                "recommendations"
+            ][0]
+            decision = record_action_decision(
+                connection,
+                recommendation_item["action_id"],
+                decision="approve",
+                reviewer_id="SYNTHETIC-REVIEWER",
+                expected_fingerprint=recommendation_item["idempotency_key"],
+            )
+            check(
+                decision["status"] == "approved",
+                "fingerprint-bound human approval must succeed",
+            )
+            connection.close()
+            checks.append(
+                "v5 run lease action outbox and fingerprint-bound approval"
+            )
 
             reconciliation_input = json.loads(
                 (

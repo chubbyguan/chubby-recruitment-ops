@@ -20,8 +20,11 @@ REQUIRED_PACKAGE_PATHS = (
     "scripts/doctor.py",
     "scripts/init_workspace.py",
     "scripts/migrate_config_v3.py",
+    "scripts/migrate_config_v4.py",
+    "scripts/run_cycle.py",
     "scripts/reconcile_interviews.py",
     "scripts/state_store.py",
+    "scripts/validate_base_mapping.py",
     "scripts/validate_interview_evaluation.py",
     "skills/recruitment-interview-review/SKILL.md",
     "skills/recruitment-ops-setup/SKILL.md",
@@ -123,10 +126,16 @@ def run_preflight(
             except (OSError, json.JSONDecodeError):
                 add("workspace", "error", "本地配置无法读取或不是有效 JSON")
             else:
-                if isinstance(config, dict) and config.get("schema_version") == "3.0":
-                    add("workspace", "pass", "已发现 schema_version=3.0 的私有工作区")
+                if isinstance(config, dict) and config.get("schema_version") == "4.0":
+                    add("workspace", "pass", "已发现 schema_version=4.0 的私有工作区")
+                elif isinstance(config, dict) and config.get("schema_version") == "3.0":
+                    add(
+                        "workspace",
+                        "error",
+                        "工作区仍为 schema 3.0；请先预览并执行 v4 迁移",
+                    )
                 else:
-                    add("workspace", "error", "工作区配置版本不是 3.0")
+                    add("workspace", "error", "工作区配置版本不是 4.0")
 
     errors = [item for item in checks if item["status"] == "error"]
     return {

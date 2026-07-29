@@ -37,6 +37,9 @@
     "human_decision_gate_verified": false
   },
   "feishu_base": {
+    "distinct_candidate_application_tables": false,
+    "distinct_application_stage_table": false,
+    "evidence_fact_table_verified": false,
     "candidate_record_id": null,
     "candidate_readback": false,
     "application_record_id": null,
@@ -51,7 +54,12 @@
   },
   "idempotency": {
     "duplicate_replay_completed": false,
-    "second_candidate_created": null
+    "second_candidate_created": null,
+    "run_lock_verified": false,
+    "duplicate_action_created": null,
+    "duplicate_notification_created": null,
+    "notification_message_id_readback": false,
+    "fingerprint_bound_approval_verified": false
   },
   "feishu_digest": {
     "message_id": null,

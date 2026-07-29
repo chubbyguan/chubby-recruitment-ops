@@ -67,6 +67,10 @@ def migrate(workspace: Path, apply: bool = False) -> dict[str, Any]:
     defaults = json.loads(
         (plugin_root / "assets" / "config.example.json").read_text(encoding="utf-8")
     )
+    defaults["schema_version"] = "3.0"
+    defaults.pop("execution", None)
+    defaults.pop("recommendation_policy", None)
+    defaults["connectors"]["feishu"]["tables"].pop("evidence_facts", None)
     migrated = merge_defaults(defaults, current)
     migrated["schema_version"] = "3.0"
     added_tables = sorted(

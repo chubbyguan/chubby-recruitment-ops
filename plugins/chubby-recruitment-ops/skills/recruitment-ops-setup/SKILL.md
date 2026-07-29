@@ -22,11 +22,14 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
 
    Fix package or runtime errors first. Treat Gmail and Feishu connector checks as pending until live read-only probes pass.
 3. Confirm the target business workspace. Do not initialize inside the plugin source directory.
-   If the workspace already has schema 2.0, preview and then apply the bundled migration:
+   If the workspace already has schema 2.0, migrate it to 3.0 first. Every
+   schema 3.0 workspace must then preview and apply the 4.0 migration:
 
    ```bash
    python3 <plugin-root>/scripts/migrate_config_v3.py --workspace <business-workspace>
    python3 <plugin-root>/scripts/migrate_config_v3.py --workspace <business-workspace> --apply
+   python3 <plugin-root>/scripts/migrate_config_v4.py --workspace <business-workspace>
+   python3 <plugin-root>/scripts/migrate_config_v4.py --workspace <business-workspace> --apply
    ```
 
    Preserve the generated private backup. Map every newly added table before continuing.
@@ -50,8 +53,17 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
 
 6. Edit `<business-workspace>/.recruitment-ops/config.json` with real non-secret identifiers and adapter choices. Never store passwords, OAuth tokens, client secrets, access tokens, or candidate data in the config.
 7. Verify Gmail, Feishu Base, Calendar, video-meeting, and Minutes access with read-only probes before any write.
-8. Map the department's existing Base when it already has candidate records. Do not create a parallel candidate master table.
-9. Compare the Base against `<plugin-root>/assets/feishu-base-schema.json`. Add missing auxiliary tables or fields only after showing the intended changes.
+8. Map the department's existing Base when it already has candidate records. Keep exactly one candidate master, but require separate physical tables for applications, application-stage history, and structured evidence. Never map those logical entities back to the candidate table.
+9. Compare the Base against `<plugin-root>/assets/feishu-base-schema.json`. Export a read-only field snapshot and validate both field coverage and table isolation:
+
+   ```bash
+   python3 <plugin-root>/scripts/validate_base_mapping.py \
+     --config <business-workspace>/.recruitment-ops/config.json \
+     --schema-snapshot <live-base-schema-snapshot.json> \
+     --contract <plugin-root>/assets/feishu-base-schema.json
+   ```
+
+   Add missing auxiliary tables or fields only after showing the intended changes. Never delete or merge existing candidate records automatically.
 10. Run:
 
    ```bash
@@ -59,7 +71,19 @@ Locate this `SKILL.md`, then treat the directory two levels above it as `<plugin
    ```
 
 11. Fix every error. Explain warnings that require human policy decisions.
-12. Use synthetic data to perform acceptance:
+12. Use `<plugin-root>/assets/recruitment-cycle.example.json` as the synthetic execution fixture. Run it in dry-run first, then commit to the local state store:
+
+    ```bash
+    python3 <plugin-root>/scripts/run_cycle.py \
+      <plugin-root>/assets/recruitment-cycle.example.json \
+      --state-db <business-workspace>/.recruitment-ops/state.sqlite3
+    python3 <plugin-root>/scripts/run_cycle.py \
+      <plugin-root>/assets/recruitment-cycle.example.json \
+      --state-db <business-workspace>/.recruitment-ops/state.sqlite3 \
+      --commit
+    ```
+
+    Continue acceptance with:
     - one approved fictional job with a public salary range and approval reference;
     - one campaign with unique channel attribution codes;
     - job-source revision and live readback evidence;

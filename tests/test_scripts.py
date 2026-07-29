@@ -21,20 +21,31 @@ sys.path.insert(0, str(SCRIPTS))
 
 from init_workspace import initialize  # noqa: E402
 from migrate_config_v3 import migrate  # noqa: E402
+from migrate_config_v4 import migrate as migrate_v4  # noqa: E402
 from build_campaign import build_campaign, content_hash  # noqa: E402
 from doctor import run_doctor  # noqa: E402
 from preflight import run_preflight  # noqa: E402
 from recommend_interviews import recommend  # noqa: E402
+from run_cycle import execute_cycle  # noqa: E402
 from render_digest import render  # noqa: E402
 from reconcile_interviews import reconcile  # noqa: E402
 from state_store import (  # noqa: E402
     attachment_seen,
+    claim_notification,
+    claim_run_lock,
     claim_message,
+    complete_notification,
     connect,
+    enqueue_action,
+    enqueue_notification,
     mark_attachment,
     mark_message,
     message_seen,
+    notification_seen,
+    record_action_decision,
+    release_run_lock,
 )
+from validate_base_mapping import validate_mapping  # noqa: E402
 from validate_assessment import validate_assessment  # noqa: E402
 from validate_campaign import validate_campaign  # noqa: E402
 from validate_interview_evaluation import validate_evaluation  # noqa: E402
@@ -170,6 +181,114 @@ class StateStoreTests(unittest.TestCase):
             connection = connect(Path(temp_dir) / "state.sqlite3")
             with self.assertRaises(ValueError):
                 mark_attachment(connection, "not-a-hash", "m-1")
+            connection.close()
+
+    def test_action_and_notification_outbox_are_atomic(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            connection = connect(Path(temp_dir) / "state.sqlite3")
+            action = enqueue_action(
+                connection,
+                action_id="ACTION-DEMO-001",
+                action_type="recommend_interview_human_review",
+                target_id="APP-DEMO-001",
+                fingerprint="INTREC-DEMO-001",
+                payload={"candidate_id": "CAND-DEMO-001"},
+            )
+            duplicate = enqueue_action(
+                connection,
+                action_id="ACTION-OTHER",
+                action_type="recommend_interview_human_review",
+                target_id="APP-DEMO-001",
+                fingerprint="INTREC-DEMO-001",
+                payload={"candidate_id": "CAND-DEMO-001"},
+            )
+            self.assertEqual(action["action_id"], duplicate["action_id"])
+
+            notification = enqueue_notification(
+                connection,
+                notification_id="NOTIFY-DEMO-001",
+                action_id=action["action_id"],
+                recipient_ref="RECIPIENT-DEMO",
+                fingerprint="INTREC-DEMO-001",
+                payload={"job_id": "JOB-DEMO-001", "score": 88},
+            )
+            self.assertEqual(notification["status"], "pending")
+            lease = claim_notification(connection, notification["notification_id"])
+            self.assertTrue(lease)
+            self.assertIsNone(
+                claim_notification(connection, notification["notification_id"])
+            )
+            complete_notification(
+                connection,
+                notification["notification_id"],
+                str(lease),
+                status="sent",
+                external_message_id="MSG-DEMO-001",
+            )
+            sent = notification_seen(
+                connection, notification["notification_id"]
+            )["record"]
+            self.assertEqual(sent["status"], "sent")
+            self.assertEqual(sent["external_message_id"], "MSG-DEMO-001")
+            connection.close()
+
+    def test_human_decision_is_fingerprint_bound(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            connection = connect(Path(temp_dir) / "state.sqlite3")
+            action = enqueue_action(
+                connection,
+                action_id="ACTION-DEMO-002",
+                action_type="recommend_interview_human_review",
+                target_id="APP-DEMO-002",
+                fingerprint="INTREC-DEMO-002",
+                payload={},
+            )
+            with self.assertRaises(ValueError):
+                record_action_decision(
+                    connection,
+                    action["action_id"],
+                    decision="approve",
+                    reviewer_id="REVIEWER-DEMO",
+                    expected_fingerprint="INTREC-STALE",
+                )
+            approved = record_action_decision(
+                connection,
+                action["action_id"],
+                decision="approve",
+                reviewer_id="REVIEWER-DEMO",
+                expected_fingerprint="INTREC-DEMO-002",
+            )
+            self.assertEqual(approved["status"], "approved")
+            self.assertEqual(approved["decision"], "approve")
+            connection.close()
+
+    def test_run_lock_prevents_overlapping_cycle(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            connection = connect(Path(temp_dir) / "state.sqlite3")
+            first = claim_run_lock(
+                connection,
+                lock_name="recruitment-cycle",
+                run_id="RUN-DEMO-001",
+            )
+            self.assertTrue(first)
+            self.assertIsNone(
+                claim_run_lock(
+                    connection,
+                    lock_name="recruitment-cycle",
+                    run_id="RUN-DEMO-002",
+                )
+            )
+            release_run_lock(
+                connection,
+                lock_name="recruitment-cycle",
+                lease_token=str(first),
+            )
+            second = claim_run_lock(
+                connection,
+                lock_name="recruitment-cycle",
+                run_id="RUN-DEMO-002",
+            )
+            self.assertTrue(second)
             connection.close()
 
 
@@ -370,6 +489,129 @@ class InterviewRecommendationTests(unittest.TestCase):
         self.assertEqual(
             second["recommendations"][0]["notification_status"],
             "already_sent",
+        )
+
+    def test_v2_uses_separate_applications_and_job_specific_threshold(self) -> None:
+        payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "recruitment-cycle.example.json"
+            ).read_text(encoding="utf-8")
+        )["recommendation_input"]
+        payload["jobs"][0]["recommendation_gate"]["minimum_score"] = 90
+        result = recommend(payload)
+        self.assertEqual(result["schema_version"], "2.0")
+        self.assertEqual(result["counts"]["recommended"], 0)
+        self.assertTrue(
+            any(
+                "below_recommendation_threshold" in item["reason_codes"]
+                for item in result["needs_information"]
+            )
+        )
+
+    def test_v2_caps_each_role_and_preserves_application_identity(self) -> None:
+        payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "recruitment-cycle.example.json"
+            ).read_text(encoding="utf-8")
+        )["recommendation_input"]
+        payload["jobs"][0]["recommendation_gate"]["top_k"] = 1
+        payload["candidates"].append(
+            {
+                "candidate_id": "CAND-DEMO-002",
+                "has_resume": True,
+                "information_complete": True,
+            }
+        )
+        payload["applications"].append(
+            {
+                **payload["applications"][0],
+                "application_id": "APP-DEMO-002",
+                "candidate_id": "CAND-DEMO-002",
+                "score": 85,
+            }
+        )
+        result = recommend(payload)
+        self.assertEqual(result["counts"]["recommended"], 1)
+        self.assertEqual(
+            result["recommendations"][0]["application_id"],
+            "APP-DEMO-001",
+        )
+        self.assertTrue(
+            any(
+                item["reason_code"] == "outside_role_top_k"
+                for item in result["excluded"]
+            )
+        )
+
+    def test_name_only_calendar_match_does_not_suppress_recommendation(self) -> None:
+        payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "recruitment-cycle.example.json"
+            ).read_text(encoding="utf-8")
+        )["recommendation_input"]
+        payload["calendar_events"] = [
+            {
+                "event_id": "EVENT-DEMO-WEAK",
+                "candidate_name": "候选人甲",
+                "status": "scheduled",
+            }
+        ]
+        result = recommend(payload)
+        self.assertEqual(result["counts"]["recommended"], 1)
+        self.assertEqual(
+            result["anomalies"][0]["reason_code"],
+            "calendar_event_missing_application_identity",
+        )
+
+    def test_candidate_only_calendar_match_does_not_suppress_other_role(self) -> None:
+        payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "recruitment-cycle.example.json"
+            ).read_text(encoding="utf-8")
+        )["recommendation_input"]
+        payload["calendar_events"] = [
+            {
+                "event_id": "EVENT-DEMO-CANDIDATE-ONLY",
+                "candidate_id": "CAND-DEMO-001",
+                "status": "scheduled",
+            }
+        ]
+        result = recommend(payload)
+        self.assertEqual(result["counts"]["recommended"], 1)
+        self.assertEqual(result["counts"]["anomalies"], 1)
+
+    def test_candidate_and_job_calendar_match_suppresses_application(self) -> None:
+        payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "recruitment-cycle.example.json"
+            ).read_text(encoding="utf-8")
+        )["recommendation_input"]
+        application = payload["applications"][0]
+        payload["calendar_events"] = [
+            {
+                "event_id": "EVENT-DEMO-STABLE-JOB",
+                "candidate_id": application["candidate_id"],
+                "job_id": application["job_id"],
+                "status": "scheduled",
+            }
+        ]
+        result = recommend(payload)
+        self.assertEqual(result["counts"]["recommended"], 0)
+        self.assertTrue(
+            any(
+                item["reason_code"] == "already_in_interview_flow"
+                for item in result["excluded"]
+            )
         )
 
 
@@ -659,7 +901,7 @@ class InitializationTests(unittest.TestCase):
             config = json.loads(
                 (operations / "config.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(config["schema_version"], "3.0")
+            self.assertEqual(config["schema_version"], "4.0")
             self.assertEqual(config["company"]["public_name"], "诺特兰德集团")
             self.assertTrue(config["company"]["disclose_public_name"])
             self.assertEqual(config["compensation"]["source"], "job_source")
@@ -694,6 +936,9 @@ class InitializationTests(unittest.TestCase):
             config_path = workspace / ".recruitment-ops" / "config.json"
             config = json.loads(config_path.read_text(encoding="utf-8"))
             config["schema_version"] = "2.0"
+            config.pop("execution")
+            config.pop("recommendation_policy")
+            config["connectors"]["feishu"]["tables"].pop("evidence_facts")
             for key in (
                 "calendar_adapter",
                 "vc_adapter",
@@ -733,6 +978,85 @@ class InitializationTests(unittest.TestCase):
             self.assertTrue(
                 (workspace / ".recruitment-ops" / "config.backup-v2.json").is_file()
             )
+
+    def test_schema_three_config_migrates_to_v4_and_reports_collisions(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir) / "department"
+            initialize(
+                argparse.Namespace(
+                    workspace=workspace,
+                    email="jobs-test@example.com",
+                    timezone="Asia/Shanghai",
+                    department_id="demo",
+                    force=False,
+                )
+            )
+            config_path = workspace / ".recruitment-ops" / "config.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["schema_version"] = "3.0"
+            config.pop("execution")
+            config.pop("recommendation_policy")
+            config["connectors"]["feishu"]["tables"].pop("evidence_facts")
+            shared_table = "demo-shared-candidate-table"
+            for name in (
+                "candidates",
+                "applications",
+                "application_stage_history",
+            ):
+                config["connectors"]["feishu"]["tables"][name] = shared_table
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+
+            preview = migrate_v4(workspace)
+            self.assertTrue(preview["changed"])
+            self.assertFalse(preview["applied"])
+            self.assertIn("evidence_facts", preview["requires_manual_mapping"])
+            self.assertTrue(preview["mapping_collisions"])
+            applied = migrate_v4(workspace, apply=True)
+            self.assertTrue(applied["applied"])
+            migrated = json.loads(config_path.read_text(encoding="utf-8"))
+            self.assertEqual(migrated["schema_version"], "4.0")
+            self.assertFalse(migrated["schedule"]["enabled"])
+            self.assertTrue(
+                (workspace / ".recruitment-ops" / "config.backup-v3.json").is_file()
+            )
+
+    def test_mapping_validator_rejects_collapsed_candidate_tables(self) -> None:
+        config = json.loads(
+            (PLUGIN_ROOT / "assets" / "config.example.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        tables = config["connectors"]["feishu"]["tables"]
+        for name in tables:
+            tables[name] = f"demo-{name}"
+        for name in (
+            "candidates",
+            "applications",
+            "application_stage_history",
+            "evidence_facts",
+        ):
+            tables[name] = "demo-collapsed"
+        result = validate_mapping(config)
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["collisions"])
+
+    def test_commit_cycle_creates_one_action_and_one_outbox_item(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            payload = json.loads(
+                (
+                    PLUGIN_ROOT
+                    / "assets"
+                    / "recruitment-cycle.example.json"
+                ).read_text(encoding="utf-8")
+            )
+            state_db = Path(temp_dir) / "state.sqlite3"
+            first = execute_cycle(payload, state_db=state_db, commit=True)
+            second = execute_cycle(payload, state_db=state_db, commit=True)
+            self.assertTrue(first["ok"])
+            self.assertEqual(first["counts"]["actions_created"], 1)
+            self.assertEqual(first["counts"]["notifications_created"], 1)
+            self.assertEqual(second["counts"]["actions_created"], 0)
+            self.assertEqual(second["counts"]["notifications_created"], 0)
 
     def test_doctor_passes_completed_local_mapping(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

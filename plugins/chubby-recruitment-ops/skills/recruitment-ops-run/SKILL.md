@@ -46,24 +46,36 @@ After all inbox items are processed, run recommendation mode against the current
 ## Recommendation mode
 
 1. Read the current jobs, candidate assessments, formal interview records, Calendar Events, decision queue, and previously sent recommendation keys.
-2. Convert only stable IDs, scores, approved evidence/risk/material codes, job gates, and fact statuses into the input accepted by:
+2. Keep candidate identity, job-specific applications, stage history, and evidence facts separate. Convert only stable IDs, scores, approved evidence/risk/material codes, job gates, and fact statuses into schema 2.0 input accepted by:
 
    ```bash
-   python3 <plugin-root>/scripts/recommend_interviews.py <recommendation-input.json>
+   python3 <plugin-root>/scripts/run_cycle.py \
+     <cycle-input.json> \
+     --state-db <business-workspace>/.recruitment-ops/state.sqlite3
    ```
 
-3. A direct recommendation requires all of the following:
-   - score is at least 80;
+3. Inspect the dry-run result before commit. A direct recommendation requires all of the following:
+   - score reaches the current job's approved recommendation threshold;
    - the validated screening recommendation is `hr_screen`;
    - resume, evidence references, candidate ID, and information-completeness checks pass;
    - the current job version is open;
    - no formal interview record or non-canceled Calendar Event exists;
    - no duplicate-review action or unresolved hard-gate conflict exists.
 4. Do not treat an imported screening row as a formal interview. If the candidate stage says interview but neither the interview table nor Calendar contains facts, recommend `confirm_interview_fact_then_review` and expose the conflict.
-5. Map new `notifications` back to authorized candidate display names only at the final Feishu message boundary. Include role, score, strong evidence, largest risk, and suggested action. Do not include contact details, resume excerpts, or protected attributes.
-6. Create one `recommend_interview_human_review` decision action for every new recommendation. Keep it pending human approval.
-7. Send only new or changed recommendation keys to the configured Feishu recipient. Store the returned message ID in the action and automation log.
-8. Never create a Calendar Event or send an interview invitation until an authorized human approves the individual action.
+5. When the dry run is correct, rerun the same immutable snapshot with `--commit`. The execution engine uses one application ID per recommendation, a singleton run lease, fingerprint-bound actions, and an idempotent notification outbox.
+6. List pending outbox items with:
+
+   ```bash
+   python3 <plugin-root>/scripts/state_store.py \
+     --db <business-workspace>/.recruitment-ops/state.sqlite3 \
+     list-notifications --status pending
+   ```
+
+7. Claim each item before using the authorized Feishu adapter. Map stable IDs to an authorized display name only at this final boundary. Include role, score, approved evidence/risk labels, and suggested action. Do not include contact details, resume excerpts, or protected attributes.
+8. After sending, record the returned message ID with `complete-notification`. A failed send must be marked failed with the active lease so a later run can retry.
+9. Record each human choice with `record-action-decision` and the exact action fingerprint. Allowed choices are `approve`, `request_info`, `talent_pool`, and `decline`. A decline closes the recommendation action; it does not automatically reject the candidate.
+10. After `approve`, read the authorized interviewer's Calendar and propose three reasonable slots. Creating the Calendar Event and sending the invitation still require a separate human confirmation.
+11. Never create a Calendar Event or send an interview invitation until an authorized human approves the individual action.
 
 ## Metrics mode
 
