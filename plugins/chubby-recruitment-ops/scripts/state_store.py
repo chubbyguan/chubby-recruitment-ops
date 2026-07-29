@@ -84,6 +84,15 @@ CREATE TABLE IF NOT EXISTS notifications (
     updated_at TEXT NOT NULL,
     FOREIGN KEY(action_id) REFERENCES actions(action_id)
 );
+
+CREATE TABLE IF NOT EXISTS source_watermarks (
+    source_name TEXT NOT NULL,
+    stream_name TEXT NOT NULL,
+    watermark TEXT NOT NULL,
+    snapshot_fingerprint TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(source_name, stream_name)
+);
 """
 
 
@@ -104,6 +113,70 @@ ACTION_DECISIONS = {
     "decline": "declined",
 }
 ALLOWED_NOTIFICATION_STATUSES = {"pending", "processing", "sent", "failed"}
+
+
+def get_source_watermark(
+    connection: sqlite3.Connection,
+    source_name: str,
+    stream_name: str,
+) -> dict[str, Any] | None:
+    if not source_name.strip() or not stream_name.strip():
+        raise ValueError("source_name and stream_name are required")
+    row = connection.execute(
+        """
+        SELECT source_name, stream_name, watermark, snapshot_fingerprint, updated_at
+        FROM source_watermarks
+        WHERE source_name = ? AND stream_name = ?
+        """,
+        (source_name, stream_name),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def set_source_watermark(
+    connection: sqlite3.Connection,
+    source_name: str,
+    stream_name: str,
+    watermark: str,
+    snapshot_fingerprint: str,
+) -> dict[str, Any]:
+    if not source_name.strip() or not stream_name.strip():
+        raise ValueError("source_name and stream_name are required")
+    if not watermark.isdigit():
+        raise ValueError("watermark must be a millisecond timestamp string")
+    normalized_fingerprint = snapshot_fingerprint.lower()
+    if (
+        len(normalized_fingerprint) != 64
+        or any(ch not in "0123456789abcdef" for ch in normalized_fingerprint)
+    ):
+        raise ValueError("snapshot_fingerprint must be a SHA-256 hexadecimal string")
+    existing = get_source_watermark(connection, source_name, stream_name)
+    if existing and int(watermark) < int(existing["watermark"]):
+        raise ValueError("source watermark cannot move backwards")
+    now = utc_now()
+    connection.execute(
+        """
+        INSERT INTO source_watermarks
+            (source_name, stream_name, watermark, snapshot_fingerprint, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(source_name, stream_name) DO UPDATE SET
+            watermark = excluded.watermark,
+            snapshot_fingerprint = excluded.snapshot_fingerprint,
+            updated_at = excluded.updated_at
+        """,
+        (
+            source_name,
+            stream_name,
+            watermark,
+            normalized_fingerprint,
+            now,
+        ),
+    )
+    connection.commit()
+    stored = get_source_watermark(connection, source_name, stream_name)
+    if stored is None:
+        raise sqlite3.IntegrityError("failed to store source watermark")
+    return stored
 
 
 def utc_now() -> str:
@@ -763,6 +836,16 @@ def build_parser() -> argparse.ArgumentParser:
     complete_notification_parser.add_argument("--external-message-id")
     complete_notification_parser.add_argument("--error")
 
+    get_watermark_parser = subparsers.add_parser("get-source-watermark")
+    get_watermark_parser.add_argument("--source", required=True)
+    get_watermark_parser.add_argument("--stream", required=True)
+
+    set_watermark_parser = subparsers.add_parser("set-source-watermark")
+    set_watermark_parser.add_argument("--source", required=True)
+    set_watermark_parser.add_argument("--stream", required=True)
+    set_watermark_parser.add_argument("--watermark", required=True)
+    set_watermark_parser.add_argument("--fingerprint", required=True)
+
     return parser
 
 
@@ -861,6 +944,26 @@ def main(argv: list[str] | None = None) -> int:
             result = {
                 "ok": True,
                 **notification_seen(connection, args.notification_id),
+            }
+        elif args.command == "get-source-watermark":
+            result = {
+                "ok": True,
+                "watermark": get_source_watermark(
+                    connection,
+                    args.source,
+                    args.stream,
+                ),
+            }
+        elif args.command == "set-source-watermark":
+            result = {
+                "ok": True,
+                "watermark": set_source_watermark(
+                    connection,
+                    args.source,
+                    args.stream,
+                    args.watermark,
+                    args.fingerprint,
+                ),
             }
         else:
             raise AssertionError(f"unhandled command: {args.command}")

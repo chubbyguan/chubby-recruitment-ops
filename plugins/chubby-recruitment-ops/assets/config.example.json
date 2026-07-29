@@ -83,6 +83,22 @@
         "mail_log": "SET_LOCALLY",
         "automation_log": "SET_LOCALLY"
       }
+    },
+    "feishu_hire": {
+      "enabled": false,
+      "adapter": "lark-cli",
+      "identity": "bot",
+      "base_identity": "user",
+      "source": "feishu_hire_v1",
+      "page_size": 100,
+      "lookback_days": 30,
+      "watermark_overlap_seconds": 300,
+      "mapped_jobs": {
+        "replace-with-feishu-hire-job-id": {
+          "internal_job_id": "replace-with-internal-job-id",
+          "expected_title": "replace-with-approved-job-title"
+        }
+      }
     }
   },
   "job_policy": {
@@ -117,6 +133,15 @@
       11,
       17,
       19
+    ],
+    "hire_sync_hours": [
+      9,
+      11,
+      13,
+      15,
+      17,
+      19,
+      21
     ],
     "digest_hour": 19,
     "decision_digest_hour": 19,
