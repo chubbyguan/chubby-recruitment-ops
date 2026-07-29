@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 
-SAFE_ID = re.compile(r"^[A-Za-z0-9_:-]{1,128}$")
+SAFE_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 OPEN_JOB_GATES = {"open", "招聘中"}
 CONDITIONAL_JOB_GATES = {"conditional", "条件岗", "人才寻访", "条件未满足"}
 BLOCKED_JOB_GATES = {"frozen", "closed", "冻结", "关闭", "已到岗", "已在位"}
@@ -94,18 +94,19 @@ def has_interview_fact(
     application_id: str | None = None,
     job_id: str | None = None,
 ) -> bool:
-    for interview in interviews:
-        interview_application_id = interview.get("application_id")
-        if application_id and interview_application_id:
-            identity_matches = interview_application_id == application_id
-        elif application_id:
-            identity_matches = (
-                interview.get("candidate_id") == candidate_id
-                and interview.get("job_id") == job_id
+    def matches_application_or_same_role(record: dict[str, Any]) -> bool:
+        record_application_id = record.get("application_id")
+        if application_id and record_application_id == application_id:
+            return True
+        if application_id:
+            return (
+                record.get("candidate_id") == candidate_id
+                and record.get("job_id") == job_id
             )
-        else:
-            identity_matches = interview.get("candidate_id") == candidate_id
-        if not identity_matches:
+        return record.get("candidate_id") == candidate_id
+
+    for interview in interviews:
+        if not matches_application_or_same_role(interview):
             continue
         if interview.get("record_type") not in FORMAL_INTERVIEW_TYPES:
             continue
@@ -113,17 +114,7 @@ def has_interview_fact(
         if status not in CANCELED_INTERVIEW_STATUSES:
             return True
     for event in calendar_events:
-        event_application_id = event.get("application_id")
-        if application_id and event_application_id:
-            identity_matches = event_application_id == application_id
-        elif application_id:
-            identity_matches = (
-                event.get("candidate_id") == candidate_id
-                and event.get("job_id") == job_id
-            )
-        else:
-            identity_matches = event.get("candidate_id") == candidate_id
-        if not identity_matches:
+        if not matches_application_or_same_role(event):
             continue
         status = str(event.get("status", "")).strip().lower()
         if status not in CANCELED_CALENDAR_STATUSES:

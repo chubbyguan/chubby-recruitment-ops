@@ -510,6 +510,19 @@ class InterviewRecommendationTests(unittest.TestCase):
             )
         )
 
+    def test_v2_accepts_dotted_job_version_from_live_source(self) -> None:
+        payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "recruitment-cycle.example.json"
+            ).read_text(encoding="utf-8")
+        )["recommendation_input"]
+        payload["jobs"][0]["job_version"] = "V1.0-20260727"
+        payload["applications"][0]["job_version"] = "V1.0-20260727"
+        result = recommend(payload)
+        self.assertEqual(result["counts"]["recommended"], 1)
+
     def test_v2_caps_each_role_and_preserves_application_identity(self) -> None:
         payload = json.loads(
             (
@@ -602,6 +615,33 @@ class InterviewRecommendationTests(unittest.TestCase):
                 "event_id": "EVENT-DEMO-STABLE-JOB",
                 "candidate_id": application["candidate_id"],
                 "job_id": application["job_id"],
+                "status": "scheduled",
+            }
+        ]
+        result = recommend(payload)
+        self.assertEqual(result["counts"]["recommended"], 0)
+        self.assertTrue(
+            any(
+                item["reason_code"] == "already_in_interview_flow"
+                for item in result["excluded"]
+            )
+        )
+
+    def test_legacy_application_id_same_candidate_and_job_suppresses(self) -> None:
+        payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "recruitment-cycle.example.json"
+            ).read_text(encoding="utf-8")
+        )["recommendation_input"]
+        application = payload["applications"][0]
+        payload["interviews"] = [
+            {
+                "application_id": "APP-LEGACY-001",
+                "candidate_id": application["candidate_id"],
+                "job_id": application["job_id"],
+                "record_type": "formal_interview",
                 "status": "scheduled",
             }
         ]
