@@ -24,6 +24,7 @@ from migrate_config_v3 import migrate  # noqa: E402
 from build_campaign import build_campaign, content_hash  # noqa: E402
 from doctor import run_doctor  # noqa: E402
 from preflight import run_preflight  # noqa: E402
+from recommend_interviews import recommend  # noqa: E402
 from render_digest import render  # noqa: E402
 from reconcile_interviews import reconcile  # noqa: E402
 from state_store import (  # noqa: E402
@@ -285,6 +286,91 @@ class AssessmentTests(unittest.TestCase):
         self.assertTrue(any("unknown assessment fields" in error for error in errors))
         self.assertTrue(any("unknown fields" in error for error in errors))
         self.assertTrue(any("candidate_id must be a safe" in error for error in errors))
+
+
+class InterviewRecommendationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "interview-recommendation.example.json"
+            ).read_text(encoding="utf-8")
+        )
+
+    def test_recommends_complete_high_score_without_interview(self) -> None:
+        result = recommend(self.payload)
+        self.assertEqual(result["counts"]["recommended"], 1)
+        self.assertEqual(result["counts"]["needs_information"], 1)
+        recommendation = result["recommendations"][0]
+        self.assertEqual(
+            recommendation["suggested_action"],
+            "recommend_interview_review",
+        )
+        self.assertTrue(recommendation["requires_human_approval"])
+        self.assertEqual(recommendation["notification_status"], "pending")
+
+    def test_formal_interview_excludes_candidate(self) -> None:
+        self.payload["interviews"] = [
+            {
+                "candidate_id": "CAND-DEMO-001",
+                "record_type": "formal_interview",
+                "status": "scheduled",
+            }
+        ]
+        result = recommend(self.payload)
+        self.assertEqual(result["counts"]["recommended"], 0)
+        self.assertTrue(
+            any(
+                item["reason_code"] == "already_in_interview_flow"
+                for item in result["excluded"]
+            )
+        )
+
+    def test_screening_import_is_not_treated_as_interview(self) -> None:
+        self.payload["interviews"] = [
+            {
+                "candidate_id": "CAND-DEMO-001",
+                "record_type": "screening_import",
+                "status": "completed",
+            }
+        ]
+        result = recommend(self.payload)
+        self.assertEqual(result["counts"]["recommended"], 1)
+
+    def test_interview_stage_without_facts_requires_confirmation(self) -> None:
+        self.payload["candidates"][0]["candidate_stage"] = "business_interview"
+        result = recommend(self.payload)
+        recommendation = result["recommendations"][0]
+        self.assertEqual(
+            recommendation["suggested_action"],
+            "confirm_interview_fact_then_review",
+        )
+        self.assertTrue(recommendation["requires_fact_confirmation"])
+
+    def test_score_does_not_override_missing_evidence(self) -> None:
+        self.payload["candidates"][0]["score"] = 95
+        self.payload["candidates"][0]["evidence_refs"] = []
+        result = recommend(self.payload)
+        self.assertEqual(result["counts"]["recommended"], 0)
+        self.assertTrue(
+            any(
+                "evidence_missing" in item["reason_codes"]
+                for item in result["needs_information"]
+            )
+        )
+
+    def test_sent_idempotency_key_suppresses_duplicate_notification(self) -> None:
+        first = recommend(self.payload)
+        sent_key = first["recommendations"][0]["idempotency_key"]
+        self.payload["previous_sent_keys"] = [sent_key]
+        second = recommend(self.payload)
+        self.assertEqual(second["counts"]["recommended"], 1)
+        self.assertEqual(second["counts"]["new_notifications"], 0)
+        self.assertEqual(
+            second["recommendations"][0]["notification_status"],
+            "already_sent",
+        )
 
 
 class DigestTests(unittest.TestCase):

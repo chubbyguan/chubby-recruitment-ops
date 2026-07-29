@@ -1,6 +1,6 @@
 ---
 name: recruitment-ops-run
-description: Operate an initialized social recruitment workflow for campaign execution, manual publication queues, multi-channel metrics, attributed mailbox applications, idempotent deduplication, job Top 3 matching, evidence-based screening, interview reconciliation, Feishu Base synchronization, decision backlogs, and daily digests. Use when a user asks to run the recruiting cycle, process applications, match or score candidates, reconcile interviews, sync records, review channel performance, or generate the daily recruitment report.
+description: Operate an initialized social recruitment workflow for campaign execution, manual publication queues, multi-channel metrics, attributed mailbox applications, idempotent deduplication, job Top 3 matching, evidence-based screening, high-score candidate interview recommendations, interview reconciliation, Feishu Base synchronization, decision backlogs, and daily digests. Use when a user asks to run the recruiting cycle, process applications, recommend un-interviewed candidates, match or score candidates, reconcile interviews, sync records, review channel performance, or generate the daily recruitment report.
 ---
 
 # Recruitment Ops Run
@@ -12,7 +12,7 @@ Operate only inside a workspace that contains `.recruitment-ops/config.json`. If
 1. Read [business-rules.md](references/business-rules.md) completely.
 2. Load `.recruitment-ops/config.json`.
 3. Resolve the plugin root from this skill location and use the deterministic scripts under `<plugin-root>/scripts/`.
-4. Validate the requested mode: `campaign`, `inbox`, `interview`, `metrics`, `digest`, or `full`.
+4. Validate the requested mode: `campaign`, `inbox`, `recommendation`, `interview`, `metrics`, `digest`, or `full`.
 
 ## Campaign mode
 
@@ -41,6 +41,30 @@ For every new or unprocessed message:
 12. Write attribution, mail-processing, application-stage, and automation-run facts to auxiliary logs.
 13. Mark the message complete only after Base writeback succeeds, and pass the exact lease token returned by the claim. If the token is stale, stop without overwriting the current worker. Mark failures with the active token so they can be retried instead of silently skipping.
 
+After all inbox items are processed, run recommendation mode against the current candidate, job, interview, and Calendar facts. This catches both new candidates and older high-score records that never entered an interview flow.
+
+## Recommendation mode
+
+1. Read the current jobs, candidate assessments, formal interview records, Calendar Events, decision queue, and previously sent recommendation keys.
+2. Convert only stable IDs, scores, approved evidence/risk/material codes, job gates, and fact statuses into the input accepted by:
+
+   ```bash
+   python3 <plugin-root>/scripts/recommend_interviews.py <recommendation-input.json>
+   ```
+
+3. A direct recommendation requires all of the following:
+   - score is at least 80;
+   - the validated screening recommendation is `hr_screen`;
+   - resume, evidence references, candidate ID, and information-completeness checks pass;
+   - the current job version is open;
+   - no formal interview record or non-canceled Calendar Event exists;
+   - no duplicate-review action or unresolved hard-gate conflict exists.
+4. Do not treat an imported screening row as a formal interview. If the candidate stage says interview but neither the interview table nor Calendar contains facts, recommend `confirm_interview_fact_then_review` and expose the conflict.
+5. Map new `notifications` back to authorized candidate display names only at the final Feishu message boundary. Include role, score, strong evidence, largest risk, and suggested action. Do not include contact details, resume excerpts, or protected attributes.
+6. Create one `recommend_interview_human_review` decision action for every new recommendation. Keep it pending human approval.
+7. Send only new or changed recommendation keys to the configured Feishu recipient. Store the returned message ID in the action and automation log.
+8. Never create a Calendar Event or send an interview invitation until an authorized human approves the individual action.
+
 ## Metrics mode
 
 For every human-published item, record the real URL, publication time, publisher, and available metrics at the configured 24h, 72h, and 7d windows.
@@ -64,6 +88,7 @@ Generate a redacted daily digest containing:
 - new email, new candidate, duplicate, parsing failure, and manual-review counts;
 - quality buckets and counts by matched job;
 - candidates worth reviewing, with job, score, evidence, risk, and suggested next step;
+- high-score candidates with no interview facts, plus missing-information and stage/fact conflicts;
 - scheduled and completed interviews, missing artifacts, pending evaluations, pending human decisions, and overdue decisions;
 - interview suggestion and the earliest reasonable human follow-up time;
 - missing data, permission failures, overdue items, and decisions needed.
@@ -74,7 +99,7 @@ Use only candidate aliases such as `候选人A` or `CAND-001`. The digest accept
 
 ## Full mode
 
-Run `campaign` only when an approved job and publication plan exist. Then run `inbox`, `interview`, and `metrics`; run `digest` only at the configured digest hour or when explicitly requested.
+Run `campaign` only when an approved job and publication plan exist. Then run `inbox`, `recommendation`, `interview`, and `metrics`; run `digest` only at the configured digest hour or when explicitly requested.
 
 ## Non-negotiable controls
 

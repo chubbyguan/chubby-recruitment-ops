@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 
 from build_campaign import build_campaign, content_hash
+from recommend_interviews import recommend
 from reconcile_interviews import reconcile
 from render_digest import render
 from state_store import (
@@ -223,6 +224,35 @@ def main() -> int:
                 "protected attribute must be rejected",
             )
             checks.append("protected-attribute rejection")
+
+            recommendation_input = json.loads(
+                (
+                    plugin_root
+                    / "assets"
+                    / "interview-recommendation.example.json"
+                ).read_text(encoding="utf-8")
+            )
+            recommendation = recommend(recommendation_input)
+            check(
+                recommendation["counts"]["recommended"] == 1,
+                "one complete high-score candidate must be recommended",
+            )
+            check(
+                recommendation["counts"]["needs_information"] == 1,
+                "incomplete high-score evidence must request more information",
+            )
+            check(
+                recommendation["recommendations"][0]["requires_human_approval"],
+                "interview recommendation must remain a human gate",
+            )
+            sent_key = recommendation["recommendations"][0]["idempotency_key"]
+            recommendation_input["previous_sent_keys"] = [sent_key]
+            replay = recommend(recommendation_input)
+            check(
+                replay["counts"]["new_notifications"] == 0,
+                "recommendation replay must not create a duplicate notification",
+            )
+            checks.append("high-score no-interview recommendation and notification idempotency")
 
             reconciliation_input = json.loads(
                 (
