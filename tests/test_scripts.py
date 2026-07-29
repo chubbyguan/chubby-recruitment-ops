@@ -911,6 +911,7 @@ class InterviewRecommendationTests(unittest.TestCase):
             ).read_text(encoding="utf-8")
         )["recommendation_input"]
         payload["applications"][0]["job_version"] = "P1-06｜2026-07-26"
+        payload["applications"][0]["application_stage"] = "business_interview"
         result = recommend(payload)
         self.assertEqual(result["counts"]["recommended"], 0)
         self.assertEqual(result["counts"]["review_actions"], 1)
@@ -924,6 +925,11 @@ class InterviewRecommendationTests(unittest.TestCase):
             "review_job_version_migration",
         )
         self.assertEqual(review["job_version"], "JOB-DEMO-V1")
+        self.assertTrue(review["requires_fact_confirmation"])
+        self.assertIn(
+            "interview_stage_without_fact",
+            review["review_reason_codes"],
+        )
         self.assertNotIn("P1-06｜2026-07-26", json.dumps(result, ensure_ascii=False))
 
     def test_v2_high_score_unverified_hard_gate_creates_review_action(self) -> None:

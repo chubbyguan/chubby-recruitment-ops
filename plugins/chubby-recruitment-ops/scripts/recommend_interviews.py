@@ -296,6 +296,13 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
                 if source_job_version is None
                 else "job_version_stale"
             )
+            requires_fact_confirmation = (
+                str(application.get("application_stage", "")).strip()
+                in INTERVIEW_STAGE_VALUES
+            )
+            review_reason_codes = [version_reason]
+            if requires_fact_confirmation:
+                review_reason_codes.append("interview_stage_without_fact")
             excluded.append(
                 {
                     **base_result,
@@ -329,8 +336,10 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
                         ),
                         "effective_minimum_score": threshold,
                         "suggested_action": suggested_action,
-                        "review_reason_codes": [version_reason],
-                        "requires_fact_confirmation": False,
+                        "review_reason_codes": sorted(review_reason_codes),
+                        "requires_fact_confirmation": (
+                            requires_fact_confirmation
+                        ),
                         "requires_human_approval": True,
                         "idempotency_key": idempotency_key,
                         "action_id": f"ACTION-{idempotency_key}",
@@ -376,6 +385,14 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
                 and candidate.get("has_resume") is True
                 and "hard_gate_not_verified" in incomplete_reasons
             ):
+                requires_fact_confirmation = (
+                    str(application.get("application_stage", "")).strip()
+                    in INTERVIEW_STAGE_VALUES
+                )
+                if requires_fact_confirmation:
+                    incomplete_reasons.append(
+                        "interview_stage_without_fact"
+                    )
                 suggested_action = "verify_hard_gate_and_missing_information"
                 idempotency_key = recommendation_key(
                     candidate_id,
@@ -394,7 +411,9 @@ def recommend_v2(data: dict[str, Any]) -> dict[str, Any]:
                         "effective_minimum_score": threshold,
                         "suggested_action": suggested_action,
                         "review_reason_codes": sorted(set(incomplete_reasons)),
-                        "requires_fact_confirmation": False,
+                        "requires_fact_confirmation": (
+                            requires_fact_confirmation
+                        ),
                         "requires_human_approval": True,
                         "idempotency_key": idempotency_key,
                         "action_id": f"ACTION-{idempotency_key}",
