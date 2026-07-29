@@ -14,6 +14,7 @@ from build_campaign import build_campaign, content_hash
 from hash_attachment import hash_attachment
 from recommend_interviews import recommend
 from reconcile_interviews import reconcile
+from render_decision_notification import render as render_decision_notification
 from render_digest import render
 from run_cycle import execute_cycle
 from sync_feishu_hire import normalize_interview
@@ -424,6 +425,37 @@ def main() -> int:
                 "missing transcript must block interview scoring",
             )
             checks.append("interview evidence and missing-artifact gate")
+
+            decision_notification = json.loads(
+                (
+                    plugin_root
+                    / "assets"
+                    / "decision-notification.example.json"
+                ).read_text(encoding="utf-8")
+            )
+            decision_message = render_decision_notification(
+                decision_notification
+            )
+            check(
+                "招聘待复核｜候选人甲" in decision_message,
+                "decision notification must identify the candidate",
+            )
+            check(
+                "评分拆解" in decision_message
+                and "请选择下一步" in decision_message,
+                "decision notification must contain evidence and choices",
+            )
+            incomplete_notification = copy.deepcopy(decision_notification)
+            incomplete_notification.pop("candidate_display_name")
+            try:
+                render_decision_notification(incomplete_notification)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(
+                    "incomplete decision notification must be blocked"
+                )
+            checks.append("decision-ready candidate notification gate")
 
             digest = render(
                 {

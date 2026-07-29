@@ -31,6 +31,7 @@ A group-chat update is useful context but cannot replace Calendar or meeting evi
 - `insufficient_transcript`: an artifact exists but is shorter than the configured threshold;
 - `processing`: recording or transcript still processing;
 - `permission_denied`: an artifact is known but access is missing;
+- `read_failed`: an artifact is known but the source/API failed after a bounded retry;
 - `no_artifact`: no usable artifact exists after the fallback search.
 
 When the artifact is unusable, record facts and ask for an interviewer note. Do not reconstruct answers from memory, calendar titles, chat messages, or resume text.

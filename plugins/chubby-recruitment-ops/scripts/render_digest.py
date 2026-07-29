@@ -100,6 +100,7 @@ ARTIFACT_LABELS = {
     "no_artifact": "无可用纪要",
     "permission_denied": "纪要无权限",
     "processing": "纪要处理中",
+    "read_failed": "纪要读取失败",
 }
 NEXT_ACTION_LABELS = {
     "generate_interview_evaluation": "生成面试评价",

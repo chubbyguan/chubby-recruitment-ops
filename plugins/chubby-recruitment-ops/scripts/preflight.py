@@ -24,6 +24,7 @@ REQUIRED_PACKAGE_PATHS = (
     "scripts/migrate_config_v4.py",
     "scripts/run_cycle.py",
     "scripts/reconcile_interviews.py",
+    "scripts/render_decision_notification.py",
     "scripts/state_store.py",
     "scripts/sync_feishu_hire.py",
     "scripts/validate_base_mapping.py",

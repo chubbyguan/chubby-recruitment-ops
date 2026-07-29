@@ -1,6 +1,6 @@
 {
   "name": "chubby-recruitment-ops",
-  "version": "0.7.0+codex.20260729220000",
+  "version": "0.7.1+codex.20260729231500",
   "description": "将社交招聘、Gmail 收件、飞书招聘增量同步、投递级初筛、岗位级面试推荐、面试纪要核验、人工决策队列、飞书 Base 和招聘日报串成可审计闭环。",
   "author": {
     "name": "Chubby",

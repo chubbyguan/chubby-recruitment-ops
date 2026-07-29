@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,96}$")
+SAFE_ID = re.compile(r"^[A-Za-z0-9_.-]{1,96}$")
 TIMESTAMP = re.compile(r"^(?:\d{2}:)?\d{2}:\d{2}$")
 DIMENSIONS = {
     "outcome_ownership": 25,
@@ -27,6 +27,7 @@ ARTIFACT_STATUSES = USABLE_ARTIFACTS | {
     "no_artifact",
     "permission_denied",
     "processing",
+    "read_failed",
 }
 RECOMMENDATIONS = {
     "recommend_next_round",

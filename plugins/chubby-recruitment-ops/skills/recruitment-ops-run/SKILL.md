@@ -180,6 +180,16 @@ requested.
 - Do not score age, sex, gender, photo, marital or fertility status, ethnicity, nationality, native place, disability, religion, or other protected traits.
 - Do not fabricate platform analytics.
 - Do not send candidate PII to unauthorized chats, tools, or files.
+- Before any candidate-specific Feishu decision notification, read the final
+  candidate and decision records again. Build
+  `assets/decision-notification.example.json` with the candidate display name,
+  candidate/application/action IDs, job title, score breakdown, evidence,
+  risks, missing information, current stage, interview fact, decision options,
+  and both Feishu record links. Run:
+  `python3 scripts/render_decision_notification.py <input.json>`.
+  If the renderer rejects the payload or any required field is absent, mark
+  the notification failed/incomplete and do not send it. Never send a score or
+  action ID without an identifiable candidate and decision context.
 - Do not treat an inferred channel as confirmed attribution. When subject code and Plus Alias conflict or are absent, record the source as unknown for human review.
 - Make every recommendation traceable to job requirements and resume evidence.
 - Treat AI output as advisory. A human owns the final decision.

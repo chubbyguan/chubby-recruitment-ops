@@ -29,6 +29,9 @@ from hash_attachment import hash_attachment  # noqa: E402
 from preflight import run_preflight  # noqa: E402
 from recommend_interviews import recommend  # noqa: E402
 from run_cycle import execute_cycle  # noqa: E402
+from render_decision_notification import (  # noqa: E402
+    render as render_decision_notification,
+)
 from render_digest import render  # noqa: E402
 from reconcile_interviews import reconcile  # noqa: E402
 from sync_feishu_hire import (  # noqa: E402
@@ -1262,7 +1265,56 @@ class DigestTests(unittest.TestCase):
         )
         self.assertIn("无可用纪要：1", output)
         self.assertIn("决定已超时：1", output)
-        self.assertIn("JOB-OLD｜JOB-NEW｜无可用纪要｜补人工面试记录｜已超时", output)
+        self.assertIn(
+            "JOB-OLD｜JOB-NEW｜无可用纪要｜补人工面试记录｜已超时",
+            output,
+        )
+
+
+class DecisionNotificationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.payload = json.loads(
+            (
+                PLUGIN_ROOT
+                / "assets"
+                / "decision-notification.example.json"
+            ).read_text(encoding="utf-8")
+        )
+
+    def test_renders_decision_ready_candidate_notification(self) -> None:
+        output = render_decision_notification(self.payload)
+        self.assertIn("招聘待复核｜候选人甲", output)
+        self.assertIn("评分拆解", output)
+        self.assertIn("关键证据", output)
+        self.assertIn("风险与待补资料", output)
+        self.assertIn("请选择下一步", output)
+        self.assertIn("查看候选人记录", output)
+
+    def test_rejects_missing_or_unidentifiable_candidate_name(self) -> None:
+        self.payload.pop("candidate_display_name")
+        with self.assertRaisesRegex(ValueError, "candidate_display_name"):
+            render_decision_notification(self.payload)
+        self.payload["candidate_display_name"] = self.payload["candidate_id"]
+        with self.assertRaisesRegex(ValueError, "identify the person"):
+            render_decision_notification(self.payload)
+
+    def test_rejects_contact_data_and_missing_decision_context(self) -> None:
+        self.payload["key_evidence"] = ["联系 person@example.com 核验"]
+        with self.assertRaisesRegex(ValueError, "disallowed contact"):
+            render_decision_notification(self.payload)
+        self.payload["key_evidence"] = ["有业务闭环案例"]
+        self.payload["decision_options"] = ["继续"]
+        with self.assertRaisesRegex(ValueError, "decision_options"):
+            render_decision_notification(self.payload)
+
+    def test_rejects_score_breakdown_mismatch(self) -> None:
+        self.payload["score"] = 88
+        with self.assertRaisesRegex(ValueError, "score_dimensions total"):
+            render_decision_notification(self.payload)
+        self.payload["score"] = 87
+        self.payload["score_dimensions"][0]["maximum"] = 21
+        with self.assertRaisesRegex(ValueError, "maximums must total 100"):
+            render_decision_notification(self.payload)
 
 
 class InterviewReconciliationTests(unittest.TestCase):
@@ -1332,6 +1384,10 @@ class InterviewEvaluationTests(unittest.TestCase):
     def test_evidence_linked_evaluation_passes(self) -> None:
         self.assertEqual(validate_evaluation(self.evaluation), [])
 
+    def test_dotted_live_job_version_is_supported(self) -> None:
+        self.evaluation["job_version"] = "V1.0-20260727"
+        self.assertEqual(validate_evaluation(self.evaluation), [])
+
     def test_nonzero_score_requires_transcript_evidence(self) -> None:
         invalid = copy.deepcopy(self.evaluation)
         invalid["evidence_refs"] = [
@@ -1352,6 +1408,20 @@ class InterviewEvaluationTests(unittest.TestCase):
         errors = validate_evaluation(invalid)
         self.assertTrue(any("must not receive dimension scores" in error for error in errors))
         self.assertTrue(any("must not receive total_score" in error for error in errors))
+
+    def test_read_failure_can_be_recorded_without_scores(self) -> None:
+        pending = copy.deepcopy(self.evaluation)
+        pending["artifact_status"] = "read_failed"
+        pending["evidence_refs"] = []
+        pending["scores"] = {}
+        pending["total_score"] = None
+        pending["recommendation"] = "request_more_info"
+        pending["strength_codes"] = []
+        pending["risk_codes"] = ["claim_not_verified"]
+        pending["missing_material_codes"] = [
+            "manual_interviewer_note_missing"
+        ]
+        self.assertEqual(validate_evaluation(pending), [])
 
     def test_protected_attribute_is_rejected(self) -> None:
         invalid = copy.deepcopy(self.evaluation)
