@@ -137,6 +137,7 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "skills" / "social-recruitment-campaign" / "SKILL.md",
         plugin_root / "skills" / "recruitment-interview-review" / "SKILL.md",
         plugin_root / "assets" / "config.example.json",
+        plugin_root / "assets" / "execution-profiles.example.json",
         plugin_root / "assets" / "job.example.json",
         plugin_root / "assets" / "eligible-jobs.example.json",
         plugin_root / "assets" / "feishu-base-schema.json",
@@ -155,6 +156,7 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "scripts" / "preflight.py",
         plugin_root / "scripts" / "migrate_config_v3.py",
         plugin_root / "scripts" / "migrate_config_v4.py",
+        plugin_root / "scripts" / "plan_execution.py",
         plugin_root / "scripts" / "run_cycle.py",
         plugin_root / "scripts" / "state_store.py",
         plugin_root / "scripts" / "sync_feishu_hire.py",
@@ -181,6 +183,7 @@ def validate(repo_root: Path) -> list[str]:
         repo_root / ".claude-plugin" / "marketplace.json", errors
     )
     load_json(plugin_root / "assets" / "config.example.json", errors)
+    load_json(plugin_root / "assets" / "execution-profiles.example.json", errors)
     load_json(plugin_root / "assets" / "feishu-base-schema.json", errors)
     load_json(plugin_root / "assets" / "assessment.example.json", errors)
     load_json(plugin_root / "assets" / "digest-input.example.json", errors)

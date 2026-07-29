@@ -12,6 +12,7 @@ from pathlib import Path
 
 from build_campaign import build_campaign, content_hash
 from hash_attachment import hash_attachment
+from plan_execution import build_plan
 from recommend_interviews import recommend
 from reconcile_interviews import reconcile
 from render_decision_notification import render as render_decision_notification
@@ -92,6 +93,52 @@ def main() -> int:
                 "attachment hash must use raw file bytes",
             )
             checks.append("raw attachment safety and deterministic hashing")
+
+            quick_plan = build_plan(
+                {
+                    "schema_version": "1.0",
+                    "profile": "quick",
+                    "task": "interview",
+                    "trigger": "interactive",
+                    "target_id": "SYNTHETIC-APPLICATION-001",
+                }
+            )
+            scheduled_plan = build_plan(
+                {
+                    "schema_version": "1.0",
+                    "profile": "scheduled",
+                    "task": "cycle",
+                    "trigger": "timer",
+                    "hour": 19,
+                }
+            )
+            maintenance_plan = build_plan(
+                {
+                    "schema_version": "1.0",
+                    "profile": "maintenance",
+                    "task": "release",
+                    "trigger": "explicit",
+                    "explicit_maintenance": True,
+                }
+            )
+            check(
+                quick_plan["source_scope"] == "target_only"
+                and "git_push" in quick_plan["forbidden_actions"],
+                "quick execution must remain targeted and forbid releases",
+            )
+            check(
+                "redacted_daily_digest" in scheduled_plan["stages"]
+                and "repository_edit" in scheduled_plan["forbidden_actions"],
+                "scheduled execution must own the 19:00 digest and forbid edits",
+            )
+            check(
+                maintenance_plan["source_scope"] == "repository_only"
+                and "gmail_read" in maintenance_plan["forbidden_actions"]
+                and "candidate_base_write"
+                in maintenance_plan["forbidden_actions"],
+                "maintenance execution must not touch production recruitment data",
+            )
+            checks.append("quick scheduled and maintenance profile isolation")
 
             hire_interview = normalize_interview(
                 {

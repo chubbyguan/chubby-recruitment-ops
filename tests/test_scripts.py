@@ -26,6 +26,7 @@ from migrate_config_v4 import migrate as migrate_v4  # noqa: E402
 from build_campaign import build_campaign, content_hash  # noqa: E402
 from doctor import run_doctor  # noqa: E402
 from hash_attachment import hash_attachment  # noqa: E402
+from plan_execution import build_plan  # noqa: E402
 from preflight import run_preflight  # noqa: E402
 from recommend_interviews import recommend  # noqa: E402
 from run_cycle import execute_cycle  # noqa: E402
@@ -102,6 +103,190 @@ class PreflightTests(unittest.TestCase):
                 for item in result["checks"]
             )
         )
+
+
+class ExecutionProfileTests(unittest.TestCase):
+    def test_quick_interview_is_targeted_and_forbids_maintenance(self) -> None:
+        result = build_plan(
+            {
+                "schema_version": "1.0",
+                "profile": "quick",
+                "task": "interview",
+                "trigger": "interactive",
+                "target_id": "APP-001",
+            }
+        )
+        self.assertEqual(result["time_budget_seconds"], 120)
+        self.assertEqual(result["source_scope"], "target_only")
+        self.assertIn("targeted_calendar_vc_artifact_read", result["stages"])
+        self.assertIn("package_test_suite", result["forbidden_actions"])
+        self.assertIn("git_push", result["forbidden_actions"])
+
+    def test_quick_inbox_is_a_bounded_watermark_batch(self) -> None:
+        result = build_plan(
+            {
+                "schema_version": "1.0",
+                "profile": "quick",
+                "task": "inbox",
+                "trigger": "interactive",
+            }
+        )
+        self.assertEqual(result["time_budget_seconds"], 180)
+        self.assertEqual(
+            result["source_scope"],
+            "target_or_watermark_batch_max_5",
+        )
+        self.assertEqual(result["connector_retry_limit"], 1)
+
+    def test_quick_campaign_and_recommendation_do_not_broaden_scope(self) -> None:
+        campaign = build_plan(
+            {
+                "schema_version": "1.0",
+                "profile": "quick",
+                "task": "campaign",
+                "trigger": "interactive",
+                "target_id": "JOB-001",
+            }
+        )
+        recommendation = build_plan(
+            {
+                "schema_version": "1.0",
+                "profile": "quick",
+                "task": "recommendation",
+                "trigger": "interactive",
+            }
+        )
+        self.assertEqual(campaign["source_scope"], "target_only")
+        self.assertIn("social_media_publish", campaign["forbidden_actions"])
+        self.assertEqual(
+            recommendation["source_scope"],
+            "current_synchronized_snapshot_only",
+        )
+        self.assertIn(
+            "run_recommendation_dry_run",
+            recommendation["stages"],
+        )
+
+    def test_quick_rejects_timer_and_missing_required_target(self) -> None:
+        with self.assertRaisesRegex(ValueError, "trigger=interactive"):
+            build_plan(
+                {
+                    "schema_version": "1.0",
+                    "profile": "quick",
+                    "task": "inbox",
+                    "trigger": "timer",
+                }
+            )
+        with self.assertRaisesRegex(ValueError, "requires target_id"):
+            build_plan(
+                {
+                    "schema_version": "1.0",
+                    "profile": "quick",
+                    "task": "candidate",
+                    "trigger": "interactive",
+                }
+            )
+
+    def test_scheduled_19_cycle_contains_reconciliation_and_digest(self) -> None:
+        result = build_plan(
+            {
+                "schema_version": "1.0",
+                "profile": "scheduled",
+                "task": "cycle",
+                "trigger": "timer",
+                "hour": 19,
+            }
+        )
+        self.assertEqual(result["time_budget_seconds"], 480)
+        self.assertEqual(result["source_scope"], "watermark_incremental")
+        self.assertIn("interview_reconciliation", result["stages"])
+        self.assertIn("redacted_daily_digest", result["stages"])
+        self.assertIn("git_push", result["forbidden_actions"])
+
+    def test_scheduled_non_reconciliation_hour_is_smaller(self) -> None:
+        result = build_plan(
+            {
+                "schema_version": "1.0",
+                "profile": "scheduled",
+                "task": "cycle",
+                "trigger": "timer",
+                "hour": 14,
+            }
+        )
+        self.assertNotIn("interview_reconciliation", result["stages"])
+        self.assertNotIn("redacted_daily_digest", result["stages"])
+
+    def test_scheduled_rejects_target_and_interactive_trigger(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must not use target_id"):
+            build_plan(
+                {
+                    "schema_version": "1.0",
+                    "profile": "scheduled",
+                    "task": "cycle",
+                    "trigger": "timer",
+                    "target_id": "CAND-001",
+                    "hour": 19,
+                }
+            )
+        with self.assertRaisesRegex(ValueError, "trigger=timer"):
+            build_plan(
+                {
+                    "schema_version": "1.0",
+                    "profile": "scheduled",
+                    "task": "cycle",
+                    "trigger": "interactive",
+                    "hour": 19,
+                }
+            )
+
+    def test_maintenance_requires_explicit_consent_and_is_repository_only(self) -> None:
+        with self.assertRaisesRegex(ValueError, "explicit_maintenance=true"):
+            build_plan(
+                {
+                    "schema_version": "1.0",
+                    "profile": "maintenance",
+                    "task": "release",
+                    "trigger": "explicit",
+                }
+            )
+        result = build_plan(
+            {
+                "schema_version": "1.0",
+                "profile": "maintenance",
+                "task": "release",
+                "trigger": "explicit",
+                "explicit_maintenance": True,
+            }
+        )
+        self.assertEqual(result["source_scope"], "repository_only")
+        self.assertIn("commit_intended_files", result["stages"])
+        self.assertIn("push", result["stages"])
+        self.assertIn("confirm_remote_sha", result["stages"])
+        self.assertIn("gmail_read", result["forbidden_actions"])
+        self.assertIn("candidate_base_write", result["forbidden_actions"])
+
+    def test_unknown_input_fields_are_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unknown fields"):
+            build_plan(
+                {
+                    "schema_version": "1.0",
+                    "profile": "quick",
+                    "task": "inbox",
+                    "trigger": "interactive",
+                    "run_everything": True,
+                }
+            )
+        with self.assertRaisesRegex(ValueError, "must not use hour"):
+            build_plan(
+                {
+                    "schema_version": "1.0",
+                    "profile": "maintenance",
+                    "task": "release",
+                    "trigger": "explicit",
+                    "explicit_maintenance": True,
+                    "hour": 19,
+                }
+            )
 
 
 class AttachmentHashTests(unittest.TestCase):

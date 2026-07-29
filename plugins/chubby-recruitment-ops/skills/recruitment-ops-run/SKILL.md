@@ -1,11 +1,49 @@
 ---
 name: recruitment-ops-run
-description: Operate an initialized social recruitment workflow for campaign execution, manual publication queues, multi-channel metrics, attributed mailbox applications, idempotent deduplication, job Top 3 matching, evidence-based screening, high-score candidate interview recommendations, interview reconciliation, Feishu Base synchronization, decision backlogs, and daily digests. Use when a user asks to run the recruiting cycle, process applications, recommend un-interviewed candidates, match or score candidates, reconcile interviews, sync records, review channel performance, or generate the daily recruitment report.
+description: Operate an initialized social recruitment workflow through strictly separated quick, scheduled, and maintenance execution profiles for campaign execution, mailbox applications, idempotent deduplication, job matching, evidence-based screening, interview recommendations, interview reconciliation, Feishu synchronization, decision backlogs, metrics, and daily digests. Use when a user asks to process a targeted recruitment item, run an incremental scheduled cycle, or explicitly maintain and release the plugin.
 ---
 
 # Recruitment Ops Run
 
 Operate only inside a workspace that contains `.recruitment-ops/config.json`. If configuration or connector access is missing, invoke the setup workflow instead of inventing values.
+
+## Select one execution profile
+
+Before any connector call, repository edit, or broad scan:
+
+1. Read [execution-profiles.md](references/execution-profiles.md) completely.
+2. Select exactly one execution profile:
+   - `quick` for an interactive campaign, candidate, interview, notification,
+     metric, recommendation, current-data digest, bounded inbox delta, or
+     bounded Feishu Hire delta;
+   - `scheduled` only for a timer-triggered incremental cycle;
+   - `maintenance` only when the user explicitly asks to change, test, package,
+     document, commit, or release the plugin.
+3. Create a small JSON input matching
+   `assets/execution-profiles.example.json`, then run:
+
+   ```bash
+   python3 <plugin-root>/scripts/plan_execution.py <execution-input.json>
+   ```
+
+4. Stop if the planner rejects the input. Run only the returned stages and
+   respect the returned time budget, retry limit, source scope, and forbidden
+   actions.
+5. Never switch profiles during a run. If a request contains both time-sensitive
+   recruitment work and repository maintenance, finish the targeted production
+   item as `quick`, then start a separate `maintenance` run.
+
+Interactive requests default to `quick`, not `full`. “查看新简历” means the
+next watermark batch of at most five messages. A single named job, candidate,
+application, interview, publication, or decision notification must use its
+stable ID as `target_id`; do not broaden that request into a mailbox, Calendar,
+Base, or Feishu Hire full scan. Ad-hoc recommendations and digests use only the
+current synchronized snapshot.
+
+The business modes below describe what recruitment work is performed. They do
+not override the execution profile. `full` business mode is valid only inside a
+timer-triggered `scheduled` cycle or when a human explicitly requests a bounded
+full audit; it is never the interactive default.
 
 ## Load operating rules
 
