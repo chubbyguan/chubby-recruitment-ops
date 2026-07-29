@@ -1,7 +1,7 @@
 {
   "name": "chubby-recruitment-ops",
-  "version": "0.4.0+codex.20260729044223",
-  "description": "将社交招聘、归因收件、候选初筛、高分未约面推荐、面试纪要核验、人工决策队列、飞书 Base 和招聘日报串成可审计闭环。",
+  "version": "0.5.0+codex.20260729084057",
+  "description": "将社交招聘、归因收件、投递级初筛、岗位级面试推荐、幂等通知发件箱、面试纪要核验、人工决策队列、飞书 Base 和招聘日报串成可审计闭环。",
   "author": {
     "name": "Chubby",
     "url": "https://github.com/chubbyguan"

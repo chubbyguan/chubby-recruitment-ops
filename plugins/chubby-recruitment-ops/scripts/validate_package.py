@@ -145,12 +145,17 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "assets" / "digest-input.example.json",
         plugin_root / "assets" / "interview-reconciliation.example.json",
         plugin_root / "assets" / "interview-recommendation.example.json",
+        plugin_root / "assets" / "recruitment-cycle.example.json",
         plugin_root / "assets" / "interview-evaluation.example.json",
         plugin_root / "assets" / "interview-scorecard-template.md",
         plugin_root / "assets" / "integration-acceptance-template.json",
         plugin_root / "scripts" / "build_campaign.py",
         plugin_root / "scripts" / "preflight.py",
         plugin_root / "scripts" / "migrate_config_v3.py",
+        plugin_root / "scripts" / "migrate_config_v4.py",
+        plugin_root / "scripts" / "run_cycle.py",
+        plugin_root / "scripts" / "state_store.py",
+        plugin_root / "scripts" / "validate_base_mapping.py",
         plugin_root / "scripts" / "reconcile_interviews.py",
         plugin_root / "scripts" / "recommend_interviews.py",
         plugin_root / "scripts" / "validate_interview_evaluation.py",
@@ -177,6 +182,7 @@ def validate(repo_root: Path) -> list[str]:
     load_json(plugin_root / "assets" / "digest-input.example.json", errors)
     load_json(plugin_root / "assets" / "interview-reconciliation.example.json", errors)
     load_json(plugin_root / "assets" / "interview-recommendation.example.json", errors)
+    load_json(plugin_root / "assets" / "recruitment-cycle.example.json", errors)
     load_json(plugin_root / "assets" / "interview-evaluation.example.json", errors)
     load_json(plugin_root / "assets" / "integration-acceptance-template.json", errors)
 

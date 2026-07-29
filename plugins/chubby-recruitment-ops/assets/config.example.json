@@ -1,5 +1,5 @@
 {
-  "schema_version": "3.0",
+  "schema_version": "4.0",
   "department_id": "replace-with-department-id",
   "timezone": "Asia/Shanghai",
   "company": {
@@ -75,6 +75,7 @@
         "candidates": "SET_LOCALLY",
         "applications": "SET_LOCALLY",
         "application_stage_history": "SET_LOCALLY",
+        "evidence_facts": "SET_LOCALLY",
         "interviews": "SET_LOCALLY",
         "interview_artifacts": "SET_LOCALLY",
         "interview_evaluations": "SET_LOCALLY",
@@ -120,6 +121,24 @@
     "digest_hour": 19,
     "decision_digest_hour": 19,
     "enabled": false
+  },
+  "execution": {
+    "engine": "agent_adapter",
+    "snapshot_schema": "2.0",
+    "dry_run_default": true,
+    "run_lease_seconds": 1800,
+    "action_lease_seconds": 900,
+    "notification_lease_seconds": 900,
+    "connector_timeout_seconds": 60,
+    "require_distinct_lifecycle_tables": true
+  },
+  "recommendation_policy": {
+    "default_minimum_score": 80,
+    "default_top_k_per_job": 3,
+    "max_recommendations_per_candidate": 1,
+    "require_hard_gate_pass": true,
+    "require_stable_calendar_identity": true,
+    "allow_name_only_calendar_match": false
   },
   "interview_policy": {
     "artifact_min_seconds": 120,

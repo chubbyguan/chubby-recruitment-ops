@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from validate_base_mapping import mapping_collisions
+
 
 PLACEHOLDERS = {"", "SET_LOCALLY", "replace-with-department-id", "jobs@example.com"}
 REQUIRED_TABLES = {
@@ -24,6 +26,7 @@ REQUIRED_TABLES = {
     "candidates",
     "applications",
     "application_stage_history",
+    "evidence_facts",
     "interviews",
     "interview_artifacts",
     "interview_evaluations",
@@ -103,6 +106,24 @@ EXPECTED_SCHEMA: dict[str, Any] = {
         "digest_hour": None,
         "decision_digest_hour": None,
         "enabled": None,
+    },
+    "execution": {
+        "engine": None,
+        "snapshot_schema": None,
+        "dry_run_default": None,
+        "run_lease_seconds": None,
+        "action_lease_seconds": None,
+        "notification_lease_seconds": None,
+        "connector_timeout_seconds": None,
+        "require_distinct_lifecycle_tables": None,
+    },
+    "recommendation_policy": {
+        "default_minimum_score": None,
+        "default_top_k_per_job": None,
+        "max_recommendations_per_candidate": None,
+        "require_hard_gate_pass": None,
+        "require_stable_calendar_identity": None,
+        "allow_name_only_calendar_match": None,
     },
     "interview_policy": {
         "artifact_min_seconds": None,
@@ -207,8 +228,8 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
             issue("error", "email-mismatch", "public application email must match the bound mailbox")
         )
 
-    if config.get("schema_version") != "3.0":
-        issues.append(issue("error", "schema-version", "config schema_version must be 3.0"))
+    if config.get("schema_version") != "4.0":
+        issues.append(issue("error", "schema-version", "config schema_version must be 4.0"))
 
     company = as_object(config.get("company"))
     raw_company_name = company.get("public_name", "")
@@ -346,6 +367,18 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
     for table_name in sorted(REQUIRED_TABLES):
         if is_placeholder(tables.get(table_name)):
             issues.append(issue("error", "table-map", f"map Feishu table: {table_name}"))
+    for collision in mapping_collisions(config):
+        issues.append(
+            issue(
+                "error",
+                "table-collision",
+                (
+                    f"logical tables share one physical table in "
+                    f"{collision['group']}: "
+                    f"{', '.join(collision['logical_tables'])}"
+                ),
+            )
+        )
 
     schedule = as_object(config.get("schedule"))
     hours = schedule.get("inbox_hours", [])
@@ -380,6 +413,96 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
                 "schedule is enabled; confirm end-to-end acceptance before production use",
             )
         )
+
+    execution = as_object(config.get("execution"))
+    if execution.get("engine") != "agent_adapter":
+        issues.append(
+            issue(
+                "error",
+                "execution-engine",
+                "execution.engine must be agent_adapter",
+            )
+        )
+    if execution.get("snapshot_schema") != "2.0":
+        issues.append(
+            issue(
+                "error",
+                "snapshot-schema",
+                "execution.snapshot_schema must be 2.0",
+            )
+        )
+    if execution.get("dry_run_default") is not True:
+        issues.append(
+            issue(
+                "error",
+                "dry-run-default",
+                "execution must default to dry-run",
+            )
+        )
+    for field in (
+        "run_lease_seconds",
+        "action_lease_seconds",
+        "notification_lease_seconds",
+        "connector_timeout_seconds",
+    ):
+        value = execution.get(field)
+        if type(value) is not int or value <= 0:
+            issues.append(
+                issue(
+                    "error",
+                    "execution-policy",
+                    f"execution.{field} must be a positive integer",
+                )
+            )
+    if execution.get("require_distinct_lifecycle_tables") is not True:
+        issues.append(
+            issue(
+                "error",
+                "table-isolation",
+                "distinct lifecycle tables must be required",
+            )
+        )
+
+    recommendation_policy = as_object(config.get("recommendation_policy"))
+    minimum_score = recommendation_policy.get("default_minimum_score")
+    if (
+        isinstance(minimum_score, bool)
+        or not isinstance(minimum_score, (int, float))
+        or not 0 <= minimum_score <= 100
+    ):
+        issues.append(
+            issue(
+                "error",
+                "recommendation-policy",
+                "default_minimum_score must be between 0 and 100",
+            )
+        )
+    for field in (
+        "default_top_k_per_job",
+        "max_recommendations_per_candidate",
+    ):
+        value = recommendation_policy.get(field)
+        if type(value) is not int or value <= 0:
+            issues.append(
+                issue(
+                    "error",
+                    "recommendation-policy",
+                    f"recommendation_policy.{field} must be a positive integer",
+                )
+            )
+    for field, expected in (
+        ("require_hard_gate_pass", True),
+        ("require_stable_calendar_identity", True),
+        ("allow_name_only_calendar_match", False),
+    ):
+        if recommendation_policy.get(field) is not expected:
+            issues.append(
+                issue(
+                    "error",
+                    "recommendation-policy",
+                    f"recommendation_policy.{field} must be {str(expected).lower()}",
+                )
+            )
 
     interview_policy = as_object(config.get("interview_policy"))
     for field in (
