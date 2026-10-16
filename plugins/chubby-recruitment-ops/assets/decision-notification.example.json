@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "candidate_display_name": "候选人甲",
+  "candidate_id": "CAND-DEMO-001",
+  "application_id": "APP-DEMO-001",
+  "job_id": "JOB-DEMO-001",
+  "job_title": "内容增长运营",
+  "action_id": "ACTION-DEMO-001",
+  "score": 87,
+  "current_stage": "HR初筛",
+  "interview_fact_status": "未发现正式面试或稳定ID日历事实",
+  "score_dimensions": [
+    {
+      "label": "硬性门槛",
+      "score": 16,
+      "maximum": 20,
+      "summary": "核心经验匹配，岗位级别仍需核验"
+    },
+    {
+      "label": "相关经历",
+      "score": 25,
+      "maximum": 25,
+      "summary": "有完整内容增长与业务闭环经历"
+    },
+    {
+      "label": "作品案例",
+      "score": 19,
+      "maximum": 20,
+      "summary": "案例完整，业务数据仍需核验"
+    },
+    {
+      "label": "岗位关键能力",
+      "score": 21,
+      "maximum": 25,
+      "summary": "内容体系能力强，AI工作流证据不足"
+    },
+    {
+      "label": "稳定性与可验证风险",
+      "score": 6,
+      "maximum": 10,
+      "summary": "职级和动手意愿需要进一步确认"
+    }
+  ],
+  "key_evidence": [
+    "有内容到业务结果的闭环案例",
+    "有可访问的代表作品"
+  ],
+  "risks": [
+    "岗位级别与候选人当前职责可能错配"
+  ],
+  "missing_information": [
+    "个人贡献拆解和AI工作流案例"
+  ],
+  "decision_options": [
+    "已经面试，继续核验会议和纪要",
+    "尚未面试，先做HR事实核验",
+    "先补资料",
+    "转人才池或关闭复核"
+  ],
+  "candidate_record_url": "https://records.example.com/record/CANDIDATE",
+  "decision_record_url": "https://records.example.com/record/DECISION"
+}

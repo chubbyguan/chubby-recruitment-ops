@@ -1,0 +1,24 @@
+{
+  "name": "chubby-recruitment",
+  "owner": {
+    "name": "Chubby"
+  },
+  "description": "面向个人和团队的社交招聘增长工作流插件市场。",
+  "plugins": [
+    {
+      "name": "chubby-recruitment-ops",
+      "source": "./plugins/chubby-recruitment-ops",
+      "description": "从多渠道招聘 Campaign、Gmail 与招聘系统双来源、投递级初筛和岗位级推荐，到面试纪要核验、人工决策队列、招聘数据表和招聘日报。",
+      "category": "productivity",
+      "tags": [
+        "recruitment",
+        "social-recruiting",
+        "xiaohongshu",
+        "gmail",
+        "collaboration",
+        "ats",
+        "interview-review"
+      ]
+    }
+  ]
+}

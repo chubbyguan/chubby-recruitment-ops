@@ -1,0 +1,4 @@
+interface:
+  display_name: "社交招聘工作流初始化"
+  short_description: "配置岗位薪资源、渠道、邮箱、协作工具、定时任务并完成端到端验收"
+  default_prompt: "使用 $recruitment-ops-setup 初始化本工作区社交招聘工作流并完成配置体检。"

@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "mode": "recommendation",
+  "workspace_id": "WORKSPACE-DEMO",
+  "notification_recipient_ref": "RECIPIENT-DEMO",
+  "run_lease_seconds": 1800,
+  "source_readbacks": {
+    "jobs": {
+      "revision": "JOBS-DEMO-R1",
+      "readback_at": "2099-01-01T09:00:00+08:00"
+    },
+    "candidates": {
+      "revision": "CANDIDATES-DEMO-R1",
+      "readback_at": "2099-01-01T09:00:01+08:00"
+    },
+    "applications": {
+      "revision": "APPLICATIONS-DEMO-R1",
+      "readback_at": "2099-01-01T09:00:02+08:00"
+    },
+    "interviews": {
+      "revision": "INTERVIEWS-DEMO-R1",
+      "readback_at": "2099-01-01T09:00:03+08:00"
+    },
+    "calendar_events": {
+      "revision": "CALENDAR-DEMO-R1",
+      "readback_at": "2099-01-01T09:00:04+08:00"
+    }
+  },
+  "recommendation_input": {
+    "schema_version": "2.0",
+    "recommendation_policy": {
+      "default_minimum_score": 80,
+      "default_top_k_per_job": 3,
+      "max_recommendations_per_candidate": 1,
+      "require_hard_gate_pass": true
+    },
+    "jobs": [
+      {
+        "job_id": "JOB-DEMO-001",
+        "job_version": "JOB-DEMO-V1",
+        "gate": "open",
+        "recommendation_gate": {
+          "minimum_score": 82,
+          "top_k": 2,
+          "require_hard_gate_pass": true
+        }
+      }
+    ],
+    "candidates": [
+      {
+        "candidate_id": "CAND-DEMO-001",
+        "has_resume": true,
+        "information_complete": true
+      }
+    ],
+    "applications": [
+      {
+        "application_id": "APP-DEMO-001",
+        "candidate_id": "CAND-DEMO-001",
+        "job_id": "JOB-DEMO-001",
+        "job_version": "JOB-DEMO-V1",
+        "score": 88,
+        "hard_gate_pass": true,
+        "screening_recommendation": "hr_screen",
+        "duplicate_review_pending": false,
+        "application_stage": "resume_received",
+        "evidence_refs": [
+          "EVIDENCE-DEMO-001",
+          "EVIDENCE-DEMO-002"
+        ],
+        "risk_codes": [
+          "owner_scope_unverified"
+        ],
+        "missing_material_codes": []
+      }
+    ],
+    "interviews": [],
+    "calendar_events": [],
+    "previous_sent_keys": []
+  }
+}

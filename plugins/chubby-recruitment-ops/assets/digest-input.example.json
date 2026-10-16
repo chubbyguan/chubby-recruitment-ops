@@ -1,0 +1,99 @@
+{
+  "date": "2099-01-01",
+  "channels": [
+    {
+      "channel": "xiaohongshu",
+      "published_today": 0,
+      "active_posts": 0,
+      "views": null,
+      "likes": null,
+      "saves": null,
+      "comments": null,
+      "clicks": null,
+      "attributed_applications": 0,
+      "qualified_candidates": 0,
+      "best_publication_id": null
+    },
+    {
+      "channel": "wechat_groups",
+      "published_today": 0,
+      "active_posts": 0,
+      "views": null,
+      "likes": null,
+      "saves": null,
+      "comments": null,
+      "clicks": null,
+      "attributed_applications": 0,
+      "qualified_candidates": 0,
+      "best_publication_id": null
+    }
+  ],
+  "publish_queue": [
+    {
+      "channel": "zhihu",
+      "job_id": "DEMO-01",
+      "attribution_code": "ZH-DEMO01-A01",
+      "status": "待人工发布"
+    }
+  ],
+  "inbox": {
+    "new_messages": 0,
+    "new_candidates": 0,
+    "duplicates": 0,
+    "failures": 0
+  },
+  "quality": {
+    "hr_screen": 0,
+    "request_more_info": 0,
+    "manual_review": 0,
+    "talent_pool": 0,
+    "by_job": {}
+  },
+  "candidates": [
+    {
+      "alias": "CAND-001",
+      "job_id": "DEMO-01",
+      "score": 69,
+      "evidence_codes": [
+        "work_sample_verified",
+        "ownership_evidence"
+      ],
+      "risk_codes": [
+        "missing_quantified_result"
+      ]
+    }
+  ],
+  "interviews": {
+    "suggestion_code": "request_more_info",
+    "follow_up_code": "two_workdays",
+    "participant_codes": [
+      "hr",
+      "business_reviewer"
+    ]
+  },
+  "interview_pipeline": {
+    "scheduled_today": 1,
+    "completed_today": 1,
+    "awaiting_evaluation": 1,
+    "artifact_missing": 0,
+    "awaiting_decision": 1,
+    "decision_overdue": 0,
+    "backlog": [
+      {
+        "alias": "CAND-001",
+        "interview_id": "INT-DEMO-001",
+        "interviewed_job_id": "DEMO-01",
+        "current_matched_job_id": "DEMO-01",
+        "artifact_status": "intelligent_transcript",
+        "next_action_code": "human_decision",
+        "overdue": false
+      }
+    ]
+  },
+  "anomalies": [
+    {
+      "code": "none",
+      "count": 0
+    }
+  ]
+}

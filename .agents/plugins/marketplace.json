@@ -1,0 +1,20 @@
+{
+  "name": "chubby-recruitment",
+  "interface": {
+    "displayName": "Chubby｜社交招聘增长引擎"
+  },
+  "plugins": [
+    {
+      "name": "chubby-recruitment-ops",
+      "source": {
+        "source": "local",
+        "path": "./plugins/chubby-recruitment-ops"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

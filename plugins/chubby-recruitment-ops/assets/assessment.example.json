@@ -1,0 +1,57 @@
+{
+  "candidate_id": "SYNTHETIC-CANDIDATE-001",
+  "information_complete": false,
+  "top_matches": [
+    {
+      "job_id": "DEMO-VIDEO-01",
+      "job_version": "DEMO-V1",
+      "confidence": 0.82,
+      "mode": "formal",
+      "matched_requirement_ids": [
+        "REQ-VIDEO-OWNERSHIP"
+      ],
+      "missing_requirement_ids": [
+        "REQ-VERIFIED-METRICS"
+      ],
+      "evidence_refs": [
+        "EVIDENCE-RESUME-001"
+      ]
+    },
+    {
+      "job_id": "DEMO-CONTENT-01",
+      "job_version": "DEMO-V1",
+      "confidence": 0.55,
+      "mode": "formal",
+      "matched_requirement_ids": [
+        "REQ-CONTENT-PLANNING"
+      ],
+      "missing_requirement_ids": [
+        "REQ-TEAM-MANAGEMENT"
+      ],
+      "evidence_refs": [
+        "EVIDENCE-PORTFOLIO-001"
+      ]
+    }
+  ],
+  "scores": {
+    "outcome_relevance": 22,
+    "hard_skills_and_samples": 18,
+    "business_judgment_and_ownership": 10,
+    "ai_fact_checking_and_correction": 8,
+    "collaboration_writing_learning": 8,
+    "credibility_and_completeness": 3
+  },
+  "total_score": 69,
+  "recommendation": "request_more_info",
+  "evidence_codes": [
+    "work_sample_verified",
+    "information_incomplete"
+  ],
+  "red_flag_codes": [],
+  "missing_material_codes": [
+    "work_sample",
+    "metrics_screenshot",
+    "contribution_statement"
+  ],
+  "human_review_required": true
+}

@@ -1,0 +1,194 @@
+{
+  "schema_version": "4.0",
+  "workspace_id": "replace-with-workspace-id",
+  "timezone": "Asia/Shanghai",
+  "company": {
+    "public_name": "诺特兰德集团",
+    "disclose_public_name": true,
+    "legal_entity_source": "job_source"
+  },
+  "public_content": {
+    "application_email": "jobs@example.com",
+    "privacy_notice": "投递材料仅用于招聘评估；如只同意用于本岗位，请在邮件中注明。"
+  },
+  "compensation": {
+    "source": "job_source",
+    "public_range_field": "公开薪资范围",
+    "approval_field": "薪资公开已批准",
+    "approval_reference_field": "薪资审批记录",
+    "require_approved_range": true,
+    "fallback": "block_publication"
+  },
+  "channels": {
+    "enabled": [
+      "xiaohongshu",
+      "wechat_groups",
+      "zhihu"
+    ],
+    "supported": [
+      "xiaohongshu",
+      "wechat_moments",
+      "wechat_groups",
+      "wechat_official",
+      "wechat_channels",
+      "douyin",
+      "bilibili",
+      "zhihu",
+      "maimai",
+      "linkedin"
+    ],
+    "publish_mode": "manual",
+    "metric_windows_hours": [
+      24,
+      72,
+      168
+    ]
+  },
+  "attribution": {
+    "subject_code_required": true,
+    "gmail_plus_alias": true,
+    "allow_inferred_source": false
+  },
+  "connectors": {
+    "email": {
+      "provider": "gmail",
+      "adapter": "auto",
+      "account": "jobs@example.com",
+      "inbox_query": "has:attachment newer_than:30d",
+      "processed_label": "recruitment/processed"
+    },
+    "collaboration": {
+      "adapter": "auto",
+      "calendar_adapter": "auto",
+      "vc_adapter": "auto",
+      "minutes_adapter": "auto",
+      "base_app_token": "SET_LOCALLY",
+      "digest_recipient_type": "open_id",
+      "digest_recipient_id": "SET_LOCALLY",
+      "tables": {
+        "jobs": "SET_LOCALLY",
+        "campaigns": "SET_LOCALLY",
+        "content_variants": "SET_LOCALLY",
+        "publications": "SET_LOCALLY",
+        "metric_snapshots": "SET_LOCALLY",
+        "attribution_codes": "SET_LOCALLY",
+        "candidates": "SET_LOCALLY",
+        "applications": "SET_LOCALLY",
+        "application_stage_history": "SET_LOCALLY",
+        "evidence_facts": "SET_LOCALLY",
+        "interviews": "SET_LOCALLY",
+        "interview_artifacts": "SET_LOCALLY",
+        "interview_evaluations": "SET_LOCALLY",
+        "decision_queue": "SET_LOCALLY",
+        "mail_log": "SET_LOCALLY",
+        "automation_log": "SET_LOCALLY"
+      }
+    },
+    "ats": {
+      "enabled": false,
+      "adapter": "collaboration-cli",
+      "cli_binary": "collaboration-cli",
+      "identity": "bot",
+      "base_identity": "user",
+      "source": "ats_hire_v1",
+      "page_size": 100,
+      "lookback_days": 30,
+      "watermark_overlap_seconds": 300,
+      "mapped_jobs": {
+        "replace-with-ats-job-id": {
+          "internal_job_id": "replace-with-internal-job-id",
+          "expected_title": "replace-with-approved-job-title"
+        }
+      }
+    }
+  },
+  "job_policy": {
+    "source": "data_table",
+    "open_statuses": [
+      "open",
+      "招聘中"
+    ],
+    "conditional_statuses": [
+      "conditional",
+      "人才寻访",
+      "条件岗"
+    ],
+    "blocked_statuses": [
+      "frozen",
+      "closed",
+      "冻结",
+      "关闭"
+    ]
+  },
+  "schedule": {
+    "inbox_hours": [
+      9,
+      11,
+      13,
+      15,
+      17,
+      19,
+      21
+    ],
+    "interview_reconcile_hours": [
+      11,
+      17,
+      19
+    ],
+    "hire_sync_hours": [
+      9,
+      11,
+      13,
+      15,
+      17,
+      19,
+      21
+    ],
+    "digest_hour": 19,
+    "decision_digest_hour": 19,
+    "enabled": false
+  },
+  "execution": {
+    "engine": "agent_adapter",
+    "snapshot_schema": "2.0",
+    "dry_run_default": true,
+    "run_lease_seconds": 1800,
+    "action_lease_seconds": 900,
+    "notification_lease_seconds": 900,
+    "connector_timeout_seconds": 60,
+    "connector_max_attempts": 4,
+    "connector_retry_base_seconds": 1,
+    "connector_retry_max_seconds": 8,
+    "require_distinct_lifecycle_tables": true
+  },
+  "recommendation_policy": {
+    "default_minimum_score": 80,
+    "default_top_k_per_job": 3,
+    "max_recommendations_per_candidate": 1,
+    "require_hard_gate_pass": true,
+    "require_stable_calendar_identity": true,
+    "allow_name_only_calendar_match": false
+  },
+  "interview_policy": {
+    "artifact_min_seconds": 120,
+    "evaluation_sla_hours": 24,
+    "decision_sla_hours": 48,
+    "allow_minutes_search_fallback": true,
+    "use_original_transcript_only": true
+  },
+  "privacy": {
+    "retention_days": 180,
+    "authorized_reviewers": [],
+    "store_resume_attachments_in_data_table": false,
+    "redact_digest_contact_details": true
+  },
+  "controls": {
+    "auto_publish_social_media": false,
+    "auto_reject_candidate": false,
+    "auto_invite_interview": false,
+    "auto_send_offer": false,
+    "auto_change_job_status": false,
+    "auto_merge_candidates": false,
+    "auto_mark_interview_passed": false
+  }
+}

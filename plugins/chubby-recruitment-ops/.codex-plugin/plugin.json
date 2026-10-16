@@ -1,0 +1,41 @@
+{
+  "name": "chubby-recruitment-ops",
+  "version": "0.8.0+codex.20260729160737",
+  "description": "将社交招聘、Gmail 收件、招聘系统增量同步、投递级初筛、岗位级面试推荐、面试纪要核验、人工决策队列、招聘数据表和招聘日报串成可审计闭环。",
+  "author": {
+    "name": "Chubby",
+    "url": "https://github.com/chubbyguan"
+  },
+  "homepage": "https://github.com/chubbyguan/chubby-recruitment-ops",
+  "repository": "https://github.com/chubbyguan/chubby-recruitment-ops",
+  "keywords": [
+    "recruitment",
+    "social-recruiting",
+    "xiaohongshu",
+    "gmail",
+    "collaboration",
+    "ats",
+    "candidate-screening",
+    "interview-review"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Chubby｜社交招聘增长引擎",
+    "shortDescription": "从招聘内容、简历到面试评价与人工决策的可审计闭环",
+    "longDescription": "为不同招聘工作区初始化并运行社交招聘闭环：校验岗位、公司与薪资审批事实，生成多渠道内容并维护人工发布队列，处理邮箱简历，执行去重、岗位匹配和证据化初筛；主动找出高分、材料完整但尚未进入面试的候选人，交叉核验面试表和日历后发送脱敏推荐；再核验视频会议和原始纪要，生成结构化面试建议、暴露缺失材料和超时决策，写回招聘数据表并生成日报。发布、候选人归并、约面、淘汰、面试结论和 Offer 始终保留人工确认。",
+    "developerName": "Chubby",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "初始化本工作区的招聘自动化，并运行配置体检。",
+      "把已批准岗位整理成可归因的多渠道招聘 Campaign。",
+      "处理新简历、匹配岗位并生成今天的招聘日报。",
+      "推荐高分但尚未进入面试流程的候选人，并创建待人工确认动作。",
+      "核验近期面试日历和原始纪要，生成有证据的面试评价与待决策清单。"
+    ]
+  }
+}

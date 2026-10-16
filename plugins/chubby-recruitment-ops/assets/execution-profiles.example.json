@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "examples": {
+    "quick_campaign": {
+      "schema_version": "1.0",
+      "profile": "quick",
+      "task": "campaign",
+      "trigger": "interactive",
+      "target_id": "JOB-DEMO-001"
+    },
+    "quick_interview": {
+      "schema_version": "1.0",
+      "profile": "quick",
+      "task": "interview",
+      "trigger": "interactive",
+      "target_id": "CAND-DEMO-001"
+    },
+    "quick_inbox_delta": {
+      "schema_version": "1.0",
+      "profile": "quick",
+      "task": "inbox",
+      "trigger": "interactive"
+    },
+    "quick_current_digest": {
+      "schema_version": "1.0",
+      "profile": "quick",
+      "task": "digest",
+      "trigger": "interactive"
+    },
+    "quick_recommendation": {
+      "schema_version": "1.0",
+      "profile": "quick",
+      "task": "recommendation",
+      "trigger": "interactive"
+    },
+    "scheduled_cycle_at_19": {
+      "schema_version": "1.0",
+      "profile": "scheduled",
+      "task": "cycle",
+      "trigger": "timer",
+      "hour": 19
+    },
+    "explicit_release": {
+      "schema_version": "1.0",
+      "profile": "maintenance",
+      "task": "release",
+      "trigger": "explicit",
+      "explicit_maintenance": true
+    }
+  }
+}
