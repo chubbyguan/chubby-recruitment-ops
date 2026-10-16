@@ -2,7 +2,7 @@
 
 - 岗位 ID：
 - 岗位名称：
-- 部门：
+- 组织：
 - 岗位状态：open / conditional / frozen / closed
 - Gate：
 - JD 版本：

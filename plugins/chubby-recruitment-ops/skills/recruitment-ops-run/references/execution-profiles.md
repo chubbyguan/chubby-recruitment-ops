@@ -7,11 +7,11 @@ it starts.
 
 Use by default for an interactive request about one candidate, one interview,
 one job campaign, one publication, one decision notification, the next Gmail or
-Feishu Hire watermark batch, or an ad-hoc recommendation/digest of data that is
+ATS watermark batch, or an ad-hoc recommendation/digest of data that is
 already synchronized.
 
 - Targeted candidate/interview/metric/notification runs: 120-second budget.
-- Gmail or Feishu Hire watermark batch: 180-second budget; Gmail is limited to
+- Gmail or ATS watermark batch: 180-second budget; Gmail is limited to
   at most five messages.
 - Ad-hoc digest: use the current synchronized snapshot; do not refresh every
   upstream source first.
@@ -32,7 +32,7 @@ Use only for timer-triggered incremental cycles.
 
 - Eight-minute budget.
 - Read from saved watermarks instead of scanning all historical data.
-- Synchronize Feishu Hire when enabled, process Gmail in bounded batches, run
+- Synchronize ATS when enabled, process Gmail in bounded batches, run
   recommendations only for changed candidates, and reconcile interviews at
   configured hours.
 - Generate the redacted digest only at the configured digest hour.
@@ -59,7 +59,7 @@ tests, installation, or GitHub release.
 | “补充丁雪的面试记录” | `quick/interview` |
 | “看看邮箱有没有新简历” | `quick/inbox` |
 | “把这个岗位生成小红书招聘内容” | `quick/campaign` |
-| “同步下一批飞书招聘更新” | `quick/hire_sync` |
+| “同步下一批招聘系统更新” | `quick/hire_sync` |
 | “推荐高分但尚未面试的人” | `quick/recommendation` |
 | “重新发这位候选人的完整通知” | `quick/notification` |
 | Timer wakes at 11:00, 17:00, or 19:00 | `scheduled/cycle` |

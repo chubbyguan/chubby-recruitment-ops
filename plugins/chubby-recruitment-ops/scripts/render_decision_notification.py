@@ -73,17 +73,13 @@ def score_value(value: Any, field: str, maximum: float = 100) -> float:
     return score
 
 
-def feishu_record_url(value: Any, field: str) -> str:
+def record_url(value: Any, field: str) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{field} must be a URL")
     parsed = urlparse(value)
     host = parsed.hostname or ""
-    if (
-        parsed.scheme != "https"
-        or not (host == "feishu.cn" or host.endswith(".feishu.cn"))
-        or "/record/" not in parsed.path
-    ):
-        raise ValueError(f"{field} must be an authorized Feishu record URL")
+    if parsed.scheme != "https" or not host or "/record/" not in parsed.path:
+        raise ValueError(f"{field} must be an https record URL")
     return value
 
 
@@ -166,11 +162,11 @@ def render(payload: dict[str, Any]) -> str:
         "decision_options",
         minimum=2,
     )
-    candidate_url = feishu_record_url(
+    candidate_url = record_url(
         payload.get("candidate_record_url"),
         "candidate_record_url",
     )
-    decision_url = feishu_record_url(
+    decision_url = record_url(
         payload.get("decision_record_url"),
         "decision_record_url",
     )

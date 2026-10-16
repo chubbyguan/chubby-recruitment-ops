@@ -18,7 +18,7 @@ from reconcile_interviews import reconcile
 from render_decision_notification import render as render_decision_notification
 from render_digest import render
 from run_cycle import execute_cycle
-from sync_feishu_hire import normalize_interview
+from sync_ats import normalize_interview
 from state_store import (
     attachment_seen,
     claim_notification,
@@ -166,7 +166,7 @@ def main() -> int:
                 and hire_interview["actual_end_at"] is None,
                 "planned Hire time must not be copied into actual interview time",
             )
-            checks.append("Feishu Hire fact normalization and human-decision boundary")
+            checks.append("ATS fact normalization and human-decision boundary")
             connection.close()
 
             config = json.loads(
@@ -178,7 +178,7 @@ def main() -> int:
             job = {
                 "岗位ID": "SYNTHETIC-ROLE-01",
                 "岗位名称": "虚构测试岗位",
-                "部门": "验收测试",
+                "组织": "验收测试",
                 "岗位状态": "招聘中",
                 "JD版本": "SYNTHETIC-V1",
                 "工作地点": "测试地点",
@@ -574,7 +574,7 @@ def main() -> int:
                 "production_ready": False,
                 "integration_acceptance": "not_run",
                 "checks": checks,
-                "next_step": "Run controlled Gmail, Feishu Hire, Base, Calendar, VC, and Minutes probes; then verify Base upsert/readback, duplicate replay, and digest send/readback.",
+                "next_step": "Run controlled Gmail, ATS, Base, Calendar, VC, and Minutes probes; then verify Base upsert/readback, duplicate replay, and digest send/readback.",
             },
             ensure_ascii=False,
             indent=2,

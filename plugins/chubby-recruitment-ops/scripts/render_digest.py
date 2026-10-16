@@ -95,7 +95,7 @@ ANOMALY_LABELS = {
 }
 ARTIFACT_LABELS = {
     "intelligent_transcript": "智能纪要可用",
-    "minutes_transcript": "妙记逐字稿可用",
+    "minutes_transcript": "会议纪要逐字稿可用",
     "insufficient_transcript": "纪要时长不足",
     "no_artifact": "无可用纪要",
     "permission_denied": "纪要无权限",

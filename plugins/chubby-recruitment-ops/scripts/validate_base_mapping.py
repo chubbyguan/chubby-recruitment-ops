@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate that logical recruitment entities use auditable Feishu table mappings."""
+"""Validate that logical recruitment entities use auditable data-table mappings."""
 
 from __future__ import annotations
 
@@ -41,8 +41,8 @@ def as_object(value: Any) -> dict[str, Any]:
 
 def mapping_collisions(config: dict[str, Any]) -> list[dict[str, Any]]:
     connectors = as_object(config.get("connectors"))
-    feishu = as_object(connectors.get("feishu"))
-    tables = as_object(feishu.get("tables"))
+    collaboration = as_object(connectors.get("collaboration"))
+    tables = as_object(collaboration.get("tables"))
     collisions: list[dict[str, Any]] = []
     for group_name, logical_names in DISTINCT_TABLE_GROUPS.items():
         by_physical_id: dict[str, list[str]] = {}
@@ -74,7 +74,7 @@ def validate_mapping(
         physical_tables = as_object(schema_snapshot.get("tables"))
         logical_contracts = as_object(contract.get("tables"))
         configured = as_object(
-            as_object(as_object(config.get("connectors")).get("feishu")).get(
+            as_object(as_object(config.get("connectors")).get("collaboration")).get(
                 "tables"
             )
         )

@@ -6,7 +6,7 @@
 
 ## 私下报告安全问题
 
-请使用 GitHub 仓库的 **Security → Report a vulnerability** 提交私密安全报告。不要在公开 Issue、Discussion 或 Pull Request 中披露漏洞细节、凭据、真实邮箱、飞书标识或候选人信息。
+请使用 GitHub 仓库的 **Security → Report a vulnerability** 提交私密安全报告。不要在公开 Issue、Discussion 或 Pull Request 中披露漏洞细节、凭据、真实邮箱、协作工具标识或候选人信息。
 
 报告中请尽量包含：
 
@@ -17,4 +17,4 @@
 
 ## 禁止提交的数据
 
-无论是漏洞报告、测试样例还是贡献代码，都不得包含真实简历、候选人联系方式、身份证件、Gmail OAuth 信息、飞书 Token、Base ID、聊天 ID、内部薪资预算或生产日志。请只使用 `example.com` 地址和完全合成的数据。
+无论是漏洞报告、测试样例还是贡献代码，都不得包含真实简历、候选人联系方式、身份证件、Gmail OAuth 信息、协作工具 Token、Base ID、聊天 ID、内部薪资预算或生产日志。请只使用 `example.com` 地址和完全合成的数据。

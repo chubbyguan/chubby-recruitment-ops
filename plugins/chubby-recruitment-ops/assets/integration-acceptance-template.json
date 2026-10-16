@@ -1,6 +1,6 @@
 {
   "status": "partial",
-  "department_id": null,
+  "workspace_id": null,
   "tested_at": null,
   "campaign": {
     "job_version_verified": false,
@@ -36,7 +36,7 @@
     "evaluation_validation_passed": false,
     "human_decision_gate_verified": false
   },
-  "feishu_base": {
+  "data_table": {
     "distinct_candidate_application_tables": false,
     "distinct_application_stage_table": false,
     "evidence_fact_table_verified": false,
@@ -61,7 +61,7 @@
     "notification_message_id_readback": false,
     "fingerprint_bound_approval_verified": false
   },
-  "feishu_digest": {
+  "im_digest": {
     "message_id": null,
     "message_readback": false,
     "pii_redaction_checked": false

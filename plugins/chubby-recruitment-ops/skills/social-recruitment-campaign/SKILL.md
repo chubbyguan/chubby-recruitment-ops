@@ -56,4 +56,4 @@ Create one campaign from one approved job version. The campaign is the unit of p
 - Do not promise a formal opening for a conditional job.
 - Do not expose internal budget, employer cost, approvals, candidate data, or unpublished business facts.
 - Do not mark content published without a real URL and timestamp.
-- The local validator detects drift and verifies the current readback envelope; it cannot authenticate Feishu by itself. Production approval still requires a live connector readback of the source and approval records.
+- The local validator detects drift and verifies the current readback envelope; it cannot authenticate the collaboration connector by itself. Production approval still requires a live connector readback of the source and approval records.

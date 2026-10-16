@@ -17,7 +17,7 @@ REQUIRED_PACKAGE_PATHS = (
     ".claude-plugin/plugin.json",
     "assets/config.example.json",
     "assets/execution-profiles.example.json",
-    "assets/feishu-base-schema.json",
+    "assets/recruitment-data-schema.json",
     "scripts/doctor.py",
     "scripts/hash_attachment.py",
     "scripts/init_workspace.py",
@@ -28,7 +28,7 @@ REQUIRED_PACKAGE_PATHS = (
     "scripts/reconcile_interviews.py",
     "scripts/render_decision_notification.py",
     "scripts/state_store.py",
-    "scripts/sync_feishu_hire.py",
+    "scripts/sync_ats.py",
     "scripts/validate_base_mapping.py",
     "scripts/validate_interview_evaluation.py",
     "skills/recruitment-interview-review/SKILL.md",
@@ -42,7 +42,7 @@ def run_preflight(
     plugin_root: Path,
     runtime: str = "auto",
     workspace: Path | None = None,
-    require_lark_cli: bool = False,
+    require_collaboration_cli: bool = False,
     which: Callable[[str], str | None] = shutil.which,
 ) -> dict[str, object]:
     root = plugin_root.expanduser().resolve()
@@ -86,16 +86,16 @@ def run_preflight(
     else:
         add("runtime", "error", f"未发现 {runtime} CLI")
 
-    lark_cli = which("lark-cli")
-    if lark_cli:
-        add("feishu-adapter", "pass", "已发现 lark-cli")
-    elif require_lark_cli:
-        add("feishu-adapter", "error", "未发现 lark-cli")
+    collaboration_cli = which("collaboration-cli")
+    if collaboration_cli:
+        add("collaboration-adapter", "pass", "已发现 collaboration-cli")
+    elif require_collaboration_cli:
+        add("collaboration-adapter", "error", "未发现 collaboration-cli")
     else:
         add(
-            "feishu-adapter",
+            "collaboration-adapter",
             "manual",
-            "未发现 lark-cli；可改用团队批准的飞书连接器",
+            "未发现 collaboration-cli；可改用已批准的协作连接器",
         )
 
     add(
@@ -106,7 +106,7 @@ def run_preflight(
     add(
         "interview-adapters",
         "manual",
-        "必须分别核验飞书日历、视频会议和妙记权限；Base 权限不能替代这些权限",
+        "必须分别核验日历、视频会议和会议纪要权限；数据表权限不能替代这些权限",
     )
 
     if workspace is None:
@@ -150,8 +150,8 @@ def run_preflight(
         "checks": checks,
         "live_acceptance_required": True,
         "next_step": (
-            "运行 recruitment-ops-setup，完成 Gmail 账号探针、飞书 Base 写入回读、"
-            "日历/会议/妙记探针、重复邮件重放和日报送达验收"
+            "运行 recruitment-ops-setup，完成 Gmail 账号探针、招聘数据表写入回读、"
+            "日历/会议/会议纪要探针、重复邮件重放和日报送达验收"
         ),
     }
 
@@ -164,13 +164,13 @@ def main(argv: list[str] | None = None) -> int:
         default="auto",
     )
     parser.add_argument("--workspace", type=Path)
-    parser.add_argument("--require-lark-cli", action="store_true")
+    parser.add_argument("--require-collaboration-cli", action="store_true")
     args = parser.parse_args(argv)
     result = run_preflight(
         Path(__file__).resolve().parent.parent,
         runtime=args.runtime,
         workspace=args.workspace,
-        require_lark_cli=args.require_lark_cli,
+        require_collaboration_cli=args.require_collaboration_cli,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["ok"] else 1

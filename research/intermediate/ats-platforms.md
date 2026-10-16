@@ -10,7 +10,7 @@
 
 - **Frappe HRMS** 是完整 HR 平台里的招聘模块。最值得借的是：`招聘申请 → 岗位开放 → 多轮面试 → 多面试官结构化反馈 → Offer` 的对象拆分、岗位编制约束、角色权限和标准 REST API。
 - **OpenCATS** 是更纯粹的 ATS/招聘 CRM。最值得借的是：独立候选人主档、候选人与岗位的多对多申请关系、每个申请独立阶段、阶段变更历史、活动时间线、来源和岗位漏斗。
-- **不建议把任何一个项目作为插件依赖，也不建议复制其代码。** 当前插件是 Gmail + 飞书 Base + Codex/Claude Code 的轻量业务编排。部署 Frappe/OpenCATS 会引入独立服务器、数据库、账户体系和运维面，偏离“业务部门安装插件即可运行”的产品方向。
+- **不建议把任何一个项目作为插件依赖，也不建议复制其代码。** 当前插件是 Gmail + 招聘数据表 + Codex/Claude Code 的轻量业务编排。部署 Frappe/OpenCATS 会引入独立服务器、数据库、账户体系和运维面，偏离“个人或团队安装插件即可运行”的产品方向。
 - 当前插件最急需修的不是增加更多 AI，而是**修正招聘数据模型**：现在 `candidates` 表同时承担“候选人身份”和“某个岗位的申请阶段”，`interviews_offers` 又把面试、反馈、Offer 混在一张表。候选人一人多投、多岗匹配、多轮面试后，数据会失真。
 
 建议优先级：
@@ -62,13 +62,13 @@ Staffing Plan
 
 1. **Job Requisition（招聘申请）**
    - 内部提出招聘需求，不直接等于对外开放岗位。
-   - 包含岗位、人数、预计薪酬、申请人、部门、期望到岗日期、完成日期和 `time_to_fill`。
+   - 包含岗位、人数、预计薪酬、申请人、组织、期望到岗日期、完成日期和 `time_to_fill`。
    - 状态为 `Pending / Open & Approved / Rejected / Filled / On Hold / Cancelled`。
    - 源码：[`hrms/hr/doctype/job_requisition/job_requisition.json`](https://github.com/frappe/hrms/blob/develop/hrms/hr/doctype/job_requisition/job_requisition.json)
    - 官方文档：[Job Requisition](https://docs.frappe.io/hr/job-requisition)
 
 2. **Job Opening（岗位开放）**
-   - 连接公司、部门、职级、Staffing Plan 和 Job Requisition。
+   - 连接公司、组织、职级、Staffing Plan 和 Job Requisition。
    - 区分 `Open / Closed`，有发布时间、截止时间、工作地点、用工类型和是否发布到网站。
    - 薪资范围和“是否公开薪资”是两个不同字段。这一点与当前“内部可存、对外不公开”的需求高度匹配。
    - 源码：[`hrms/hr/doctype/job_opening/job_opening.json`](https://github.com/frappe/hrms/blob/develop/hrms/hr/doctype/job_opening/job_opening.json)
@@ -207,7 +207,7 @@ Frappe 每个 DocType 都声明角色权限：
 不宜照搬：
 
 - Frappe 默认 DocType 权限对一些角色仍偏宽，例如 Interviewer 对 Interview 拥有较多操作权；
-- 插件本身无法替代飞书 Base 的访问控制。必须在 Base 层配置角色/视图权限，并让插件只使用最小权限连接器。
+- 插件本身无法替代招聘数据表的访问控制。必须在数据表侧配置角色/视图权限，并让插件只使用最小权限连接器。
 
 ### 3.5 报表
 
@@ -253,7 +253,7 @@ write_activity()
 query_metrics()
 ```
 
-这样飞书 Base、未来 Web 应用或其他 ATS 可以替换底层实现，Skill 不需要改业务逻辑。
+这样招聘数据表、未来 Web 应用或其他 ATS 可以替换底层实现，Skill 不需要改业务逻辑。
 
 ## 四、OpenCATS 深入分析
 
@@ -338,7 +338,7 @@ Placed
 
 需要改进后再借：
 
-- OpenCATS 的阶段使用固定数字编码，不适合不同业务部门的可配置流程；
+- OpenCATS 的阶段使用固定数字编码，不适合不同招聘工作区的可配置流程；
 - `candidate_joborder_status_history` 本身没有 actor，actor 在另一张通用 history 表，查询和审计会被拆散；
 - 我们应把 `actor_id / actor_type / reason_code / note / source_run_id` 直接放进 `application_stage_history`。
 
@@ -476,7 +476,7 @@ OpenCATS 当前仓库没有 Frappe 那种现代、通用的 REST CRUD API。主�
 
 当前源文件：
 
-- `plugins/chubby-recruitment-ops/assets/feishu-base-schema.json`
+- `plugins/chubby-recruitment-ops/assets/recruitment-data-schema.json`
 - `plugins/chubby-recruitment-ops/assets/config.example.json`
 - `plugins/chubby-recruitment-ops/skills/recruitment-ops-run/SKILL.md`
 - `plugins/chubby-recruitment-ops/skills/recruitment-ops-run/references/business-rules.md`
@@ -648,7 +648,7 @@ Application 应直接保存：
 | recruitment_admin | 配置、连接器、字段映射、所有招聘记录 |
 | recruiter | 所负责岗位、候选人、申请和沟通 |
 | interviewer | 只读必要候选摘要；写本人被分配面试反馈 |
-| hiring_manager | 查看本部门漏斗、候选摘要和人工决策 |
+| hiring_manager | 查看本工作区漏斗、候选摘要和人工决策 |
 | auditor | 只读运行日志、阶段历史和授权记录 |
 
 PII 进一步拆分：
@@ -656,7 +656,7 @@ PII 进一步拆分：
 - 面试官默认不需要查看完整邮箱、电话、身份证明；
 - 日报继续使用候选人代号；
 - Offer/薪资信息放在权限更窄的表或受限视图；
-- Skill 里的 allowlist 只是软控制，必须由飞书 Base 权限承担最终强制控制。
+- Skill 里的 allowlist 只是软控制，必须由招聘数据表权限承担最终强制控制。
 
 ### P2-1：消息模板 + 人工发送队列
 
@@ -669,7 +669,7 @@ PII 进一步拆分：
 - 流程结束；
 - Offer 草稿。
 
-每条候选人消息先进入 `pending_communications`，记录模板版本、收件人、申请、审批人、发送状态；人确认后才调用 Gmail/飞书。
+每条候选人消息先进入 `pending_communications`，记录模板版本、收件人、申请、审批人、发送状态；人确认后才调用 Gmail/协作工具。
 
 ### P2-2：可选投递表单
 
@@ -685,10 +685,10 @@ Frappe Job Portal 和 OpenCATS Career Portal 都证明结构化入口能减少�
 
 ### P2-3：适配器接口
 
-将 Skill 里的“自动选择 Gmail/飞书工具”升级为明确 adapter contract：
+将 Skill 里的“自动选择 邮箱/协作工具”升级为明确 adapter contract：
 
 - `GmailAdapter`
-- `FeishuBaseAdapter`
+- `DataTableAdapter`
 - `NotificationAdapter`
 - 未来 `ATSAdapter`
 
@@ -708,14 +708,14 @@ Frappe Job Portal 和 OpenCATS Career Portal 都证明结构化入口能减少�
 
 2. **不嵌入 OpenCATS**
    - 会新增 PHP、MariaDB、Web 服务器、独立登录体系和升级维护。
-   - 当前插件已经以飞书 Base 作为部门业务事实源，再引入 OpenCATS 会产生双主数据。
+   - 当前插件已经以招聘数据表作为工作区事实源，再引入 OpenCATS 会产生双主数据。
 
 3. **不复制代码**
    - Frappe GPL-3.0；
    - OpenCATS 存在 MPL-2.0 与 CATS Public License 1.1a 的逐文件许可证边界。
 
 4. **不采用 OpenCATS 的固定数字阶段**
-   - 部门流程不同，应使用可配置状态机和稳定字符串 ID。
+   - 招聘流程不同，应使用可配置状态机和稳定字符串 ID。
 
 5. **不采用 OpenCATS 的 ACL 实现**
    - 只取第一个 category，官方文档也承认覆盖未完成。
@@ -755,7 +755,7 @@ Frappe Job Portal 和 OpenCATS Career Portal 都证明结构化入口能减少�
 - 来源/内容归因；
 - 招聘漏斗与阶段停留；
 - 操作人、原因码和事件审计；
-- 飞书权限配置检查。
+- 协作工具权限配置检查。
 
 ### v0.4：候选人体验和连接器
 

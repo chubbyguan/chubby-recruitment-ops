@@ -15,7 +15,7 @@ from typing import Any
 from validate_base_mapping import mapping_collisions
 
 
-PLACEHOLDERS = {"", "SET_LOCALLY", "replace-with-department-id", "jobs@example.com"}
+PLACEHOLDERS = {"", "SET_LOCALLY", "replace-with-workspace-id", "jobs@example.com"}
 REQUIRED_TABLES = {
     "jobs",
     "campaigns",
@@ -44,7 +44,7 @@ REQUIRED_CONTROLS = {
     "auto_mark_interview_passed",
 }
 OPTIONAL_CONFIG_PATHS = {
-    "connectors.feishu_hire",
+    "connectors.ats",
     "schedule.hire_sync_hours",
     "execution.connector_max_attempts",
     "execution.connector_retry_base_seconds",
@@ -52,7 +52,7 @@ OPTIONAL_CONFIG_PATHS = {
 }
 EXPECTED_SCHEMA: dict[str, Any] = {
     "schema_version": None,
-    "department_id": None,
+    "workspace_id": None,
     "timezone": None,
     "company": {
         "public_name": None,
@@ -90,7 +90,7 @@ EXPECTED_SCHEMA: dict[str, Any] = {
             "inbox_query": None,
             "processed_label": None,
         },
-        "feishu": {
+        "collaboration": {
             "adapter": None,
             "calendar_adapter": None,
             "vc_adapter": None,
@@ -100,9 +100,10 @@ EXPECTED_SCHEMA: dict[str, Any] = {
             "digest_recipient_id": None,
             "tables": {table_name: None for table_name in REQUIRED_TABLES},
         },
-        "feishu_hire": {
+        "ats": {
             "enabled": None,
             "adapter": None,
+            "cli_binary": None,
             "identity": None,
             "base_identity": None,
             "source": None,
@@ -157,7 +158,7 @@ EXPECTED_SCHEMA: dict[str, Any] = {
     "privacy": {
         "retention_days": None,
         "authorized_reviewers": None,
-        "store_resume_attachments_in_feishu": None,
+        "store_resume_attachments_in_data_table": None,
         "redact_digest_contact_details": None,
     },
     "controls": {control: None for control in REQUIRED_CONTROLS},
@@ -232,6 +233,9 @@ def is_placeholder(value: Any) -> bool:
 
 def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
+    if "department_id" in config:
+        legacy_workspace_id = config.pop("department_id")
+        config.setdefault("workspace_id", legacy_workspace_id)
     validate_shape(config, EXPECTED_SCHEMA, "", issues)
 
     for key in find_secret_keys(config):
@@ -369,7 +373,7 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
         issues.append(
             issue("error", "reviewers", "authorized_reviewers must contain non-empty strings")
         )
-    if privacy.get("store_resume_attachments_in_feishu") is not False:
+    if privacy.get("store_resume_attachments_in_data_table") is not False:
         issues.append(
             issue(
                 "warning",
@@ -378,13 +382,13 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
             )
         )
 
-    feishu = as_object(connectors.get("feishu"))
-    if is_placeholder(feishu.get("base_app_token")):
-        issues.append(issue("error", "feishu-base", "map the department Feishu Base"))
-    if is_placeholder(feishu.get("digest_recipient_id")):
-        issues.append(issue("error", "digest-recipient", "configure the Feishu digest recipient"))
+    collaboration = as_object(connectors.get("collaboration"))
+    if is_placeholder(collaboration.get("base_app_token")):
+        issues.append(issue("error", "data-table", "map the workspace recruitment data table"))
+    if is_placeholder(collaboration.get("digest_recipient_id")):
+        issues.append(issue("error", "digest-recipient", "configure the IM digest recipient"))
 
-    tables = as_object(feishu.get("tables"))
+    tables = as_object(collaboration.get("tables"))
     missing_tables = sorted(REQUIRED_TABLES - set(tables))
     if missing_tables:
         issues.append(
@@ -392,7 +396,7 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
         )
     for table_name in sorted(REQUIRED_TABLES):
         if is_placeholder(tables.get(table_name)):
-            issues.append(issue("error", "table-map", f"map Feishu table: {table_name}"))
+            issues.append(issue("error", "table-map", f"map data table: {table_name}"))
     for collision in mapping_collisions(config):
         issues.append(
             issue(
@@ -406,27 +410,27 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
             )
         )
 
-    if "feishu_hire" in connectors:
-        hire = as_object(connectors.get("feishu_hire"))
+    if "ats" in connectors:
+        hire = as_object(connectors.get("ats"))
         if type(hire.get("enabled")) is not bool:
             issues.append(
-                issue("error", "feishu-hire", "connectors.feishu_hire.enabled must be boolean")
+                issue("error", "ats", "connectors.ats.enabled must be boolean")
             )
-        if hire.get("adapter") != "lark-cli":
+        if hire.get("adapter") != "collaboration-cli":
             issues.append(
-                issue("error", "feishu-hire", "Feishu Hire adapter must be lark-cli")
+                issue("error", "ats", "ATS adapter must be collaboration-cli")
             )
         if hire.get("identity") != "bot":
             issues.append(
-                issue("error", "feishu-hire", "Feishu Hire reads must use bot identity")
+                issue("error", "ats", "ATS reads must use bot identity")
             )
         if hire.get("base_identity") not in {"user", "bot"}:
             issues.append(
-                issue("error", "feishu-hire", "base_identity must be user or bot")
+                issue("error", "ats", "base_identity must be user or bot")
             )
-        if hire.get("source") != "feishu_hire_v1":
+        if hire.get("source") != "ats_hire_v1":
             issues.append(
-                issue("error", "feishu-hire", "source must be feishu_hire_v1")
+                issue("error", "ats", "source must be ats_hire_v1")
             )
         for field in ("page_size", "lookback_days", "watermark_overlap_seconds"):
             value = hire.get(field)
@@ -434,20 +438,20 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
                 issues.append(
                     issue(
                         "error",
-                        "feishu-hire",
-                        f"connectors.feishu_hire.{field} must be a positive integer",
+                        "ats",
+                        f"connectors.ats.{field} must be a positive integer",
                     )
                 )
         mappings = as_object(hire.get("mapped_jobs"))
         if hire.get("enabled") is True and not mappings:
             issues.append(
-                issue("error", "feishu-hire", "enabled Feishu Hire connector needs mapped_jobs")
+                issue("error", "ats", "enabled ATS connector needs mapped_jobs")
             )
         for source_job_id, raw_mapping in mappings.items():
             mapping = as_object(raw_mapping)
             if not isinstance(source_job_id, str) or not source_job_id.strip():
                 issues.append(
-                    issue("error", "feishu-hire", "mapped_jobs keys must be non-empty strings")
+                    issue("error", "ats", "mapped_jobs keys must be non-empty strings")
                 )
             if not isinstance(mapping.get("internal_job_id"), str) or not mapping[
                 "internal_job_id"
@@ -455,7 +459,7 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
                 issues.append(
                     issue(
                         "error",
-                        "feishu-hire",
+                        "ats",
                         "every mapped job needs internal_job_id",
                     )
                 )
@@ -465,13 +469,26 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
                 issues.append(
                     issue(
                         "error",
-                        "feishu-hire",
+                        "ats",
                         "every mapped job needs expected_title for drift detection",
                     )
                 )
-        if hire.get("enabled") is True and not shutil.which("lark-cli"):
+        cli_binary = hire.get("cli_binary", "collaboration-cli")
+        if not isinstance(cli_binary, str) or not cli_binary.strip() or cli_binary in PLACEHOLDERS:
             issues.append(
-                issue("error", "feishu-hire", "enabled Feishu Hire connector needs lark-cli")
+                issue(
+                    "error",
+                    "ats",
+                    "connectors.ats.cli_binary must name the collaboration CLI",
+                )
+            )
+        elif hire.get("enabled") is True and not shutil.which(cli_binary):
+            issues.append(
+                issue(
+                    "error",
+                    "ats",
+                    "enabled ATS connector needs the configured CLI on PATH",
+                )
             )
 
     schedule = as_object(config.get("schedule"))
@@ -658,10 +675,10 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
 
     adapter_values = (
         email_config.get("adapter", "auto"),
-        feishu.get("adapter", "auto"),
-        feishu.get("calendar_adapter", "auto"),
-        feishu.get("vc_adapter", "auto"),
-        feishu.get("minutes_adapter", "auto"),
+        collaboration.get("adapter", "auto"),
+        collaboration.get("calendar_adapter", "auto"),
+        collaboration.get("vc_adapter", "auto"),
+        collaboration.get("minutes_adapter", "auto"),
     )
     valid_adapters = [
         adapter
@@ -673,14 +690,14 @@ def validate_config(config: dict[str, Any]) -> list[dict[str, str]]:
             issue("error", "adapter", "connector adapters must be non-empty strings")
         )
     adapters = set(valid_adapters)
-    if "lark-cli" in adapters and not shutil.which("lark-cli"):
-        issues.append(issue("error", "lark-cli", "configured lark-cli is not installed"))
-    elif shutil.which("lark-cli") is None:
+    if "collaboration-cli" in adapters and not shutil.which("collaboration-cli"):
+        issues.append(issue("error", "collaboration-cli", "configured collaboration-cli is not installed"))
+    elif shutil.which("collaboration-cli") is None:
         issues.append(
             issue(
                 "warning",
-                "feishu-probe",
-                "lark-cli was not found; verify that another Feishu connector is available",
+                "collaboration-probe",
+                "collaboration-cli was not found; verify that another collaboration connector is available",
             )
         )
 
@@ -738,7 +755,7 @@ def run_doctor(workspace: Path) -> dict[str, Any]:
         "errors": errors,
         "warnings": warnings,
         "issues": issues,
-        "note": "This doctor is local-only; live Gmail, Feishu Base, Calendar, VC, and Minutes authorization still require read-only probes.",
+        "note": "This doctor is local-only; live Gmail, recruitment data table, Calendar, VC, and Minutes authorization still require read-only probes.",
     }
 
 

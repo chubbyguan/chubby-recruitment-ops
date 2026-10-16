@@ -70,12 +70,12 @@ def migrate(workspace: Path, apply: bool = False) -> dict[str, Any]:
     defaults["schema_version"] = "3.0"
     defaults.pop("execution", None)
     defaults.pop("recommendation_policy", None)
-    defaults["connectors"]["feishu"]["tables"].pop("evidence_facts", None)
+    defaults["connectors"]["collaboration"]["tables"].pop("evidence_facts", None)
     migrated = merge_defaults(defaults, current)
     migrated["schema_version"] = "3.0"
     added_tables = sorted(
-        set(migrated["connectors"]["feishu"]["tables"])
-        - set(current["connectors"]["feishu"]["tables"])
+        set(migrated["connectors"]["collaboration"]["tables"])
+        - set(current["connectors"]["collaboration"]["tables"])
     )
     added_controls = sorted(
         set(migrated["controls"]) - set(current.get("controls", {}))
@@ -88,7 +88,7 @@ def migrate(workspace: Path, apply: bool = False) -> dict[str, Any]:
         "added_table_mappings": added_tables,
         "added_controls": added_controls,
         "requires_manual_mapping": added_tables,
-        "next_step": "Map new Feishu tables and probe Calendar, VC, and Minutes, then run doctor.py.",
+        "next_step": "Map new data tables and probe Calendar, VC, and Minutes, then run doctor.py.",
     }
     if not apply:
         return result

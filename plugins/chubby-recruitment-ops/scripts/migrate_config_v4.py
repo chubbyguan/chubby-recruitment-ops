@@ -77,9 +77,9 @@ def migrate(workspace: Path, apply: bool = False) -> dict[str, Any]:
     migrated["schema_version"] = "4.0"
     migrated["schedule"]["enabled"] = False
     current_tables = (
-        current.get("connectors", {}).get("feishu", {}).get("tables", {})
+        current.get("connectors", {}).get("collaboration", {}).get("tables", {})
     )
-    migrated_tables = migrated["connectors"]["feishu"]["tables"]
+    migrated_tables = migrated["connectors"]["collaboration"]["tables"]
     added_tables = sorted(set(migrated_tables) - set(current_tables))
     collisions = mapping_collisions(migrated)
     result = {

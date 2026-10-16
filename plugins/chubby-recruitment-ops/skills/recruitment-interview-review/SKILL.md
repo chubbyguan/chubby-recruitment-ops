@@ -1,6 +1,6 @@
 ---
 name: recruitment-interview-review
-description: Reconcile recruitment interviews across Feishu Calendar, video meetings, intelligent minutes, candidate records, and current job gates; prepare evidence-based interview briefs, validate original-transcript evaluations, surface missing artifacts and overdue human decisions, and sync factual interview status without treating a completed meeting as a pass. Use when a user asks who has been interviewed, requests interview advice or candidate feedback, wants calendar and minutes checked, or needs interview progress updated.
+description: Reconcile recruitment interviews across Calendar, video meetings, intelligent minutes, candidate records, and current job gates; prepare evidence-based interview briefs, validate original-transcript evaluations, surface missing artifacts and overdue human decisions, and sync factual interview status without treating a completed meeting as a pass. Use when a user asks who has been interviewed, requests interview advice or candidate feedback, wants calendar and minutes checked, or needs interview progress updated.
 ---
 
 # Recruitment Interview Review
@@ -16,13 +16,13 @@ Use this skill only inside an initialized recruitment workspace. It supplements 
 ## Choose a mode
 
 - `brief`: prepare an interview brief from the current JD, verified resume facts, existing screening assessment, and unresolved evidence.
-- `reconcile`: compare candidate records with Feishu Calendar, video meetings, and minutes.
+- `reconcile`: compare candidate records with Calendar, video meetings, and minutes.
 - `evaluate`: score a completed interview from an original usable transcript.
 - `backlog`: list completed interviews awaiting evaluation or a human decision.
 
 ## Reconcile mode
 
-1. Verify the Feishu identity and access scope.
+1. Verify the connector identity and access scope.
 2. Read current candidate/application records. Do not trust chat messages as the sole status source.
 3. Search the relevant Calendar window and capture stable event IDs, planned times, and status.
 4. Resolve the linked video-meeting ID and actual start/end facts.

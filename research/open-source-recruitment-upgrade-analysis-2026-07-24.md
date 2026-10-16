@@ -7,7 +7,7 @@
 
 ## 结论先行
 
-GitHub 上有类似项目，但**没有一个仓库完整覆盖“小红书内容准备 → Gmail 收简历 → 多岗位匹配与证据化评分 → 飞书 Base → 日报”**。现有插件不应该被其中任何一个整体替换。
+GitHub 上有类似项目，但**没有一个仓库完整覆盖“小红书内容准备 → Gmail 收简历 → 多岗位匹配与证据化评分 → 招聘数据表→ 日报”**。现有插件不应该被其中任何一个整体替换。
 
 最合理的路线是组合借鉴：
 
@@ -20,9 +20,9 @@ GitHub 上有类似项目，但**没有一个仓库完整覆盖“小红书内�
 
 坦白说，下一版最不该做的是“再加一个更聪明的总分”。当前更急的是三件事：
 
-- **先把真实 Gmail 和飞书适配器做完并验收。** 现在仓库里主要是 connector contract，不是已经可复制到每个部门的生产连接器。
+- **先把真实 Gmail 和协作工具适配器做完并验收。** 现在仓库里主要是 connector contract，不是已经可复制到每个工作区的生产连接器。
 - **修正数据模型。** 当前 `candidates` 同时存候选人身份和岗位申请事实，一人多岗时会覆盖；`interviews_offers` 又把面试、反馈和 Offer 混在一起。
-- **建立真实评测。** 现有 17 个本地测试验证的是脚本与虚构流程，不等于“AI 匹配准确”或“真实部门链路已经跑通”。
+- **建立真实评测。** 现有 17 个本地测试验证的是脚本与虚构流程，不等于“AI 匹配准确”或“真实使用场景链路已经跑通”。
 
 ## 一、现有插件的真实基线
 
@@ -43,8 +43,8 @@ GitHub 上有类似项目，但**没有一个仓库完整覆盖“小红书内�
 
 | 能力 | 当前状态 | 风险 |
 |---|---|---|
-| Gmail 真实读信/附件 | 定义了 capability contract，依赖外部连接器 | 同事安装后不一定立即可跑；缺少统一实现和真实回归 |
-| 飞书 Base 写入/回读/通知 | 定义了 adapter contract，依赖 `lark-cli` 或外部连接器 | 字段映射、权限、幂等写和回读仍需逐部门验收 |
+| Gmail 真实读信/附件 | 定义了 capability contract，依赖外部连接器 | 用户安装后不一定立即可跑；缺少统一实现和真实回归 |
+| 招聘数据表写入/回读/通知 | 定义了 adapter contract，依赖 `collaboration-cli` 或外部连接器 | 字段映射、权限、幂等写和回读仍需按工作区验收 |
 | 简历解析 | 有处理规则，没有正式版本化 parser/evidence 中间层 | 解析错误可能直接污染匹配和评分 |
 | AI 质量评测 | 有 JSON validator 和合成验收，没有匹配准确率基线 | 不能证明 Top 3、硬门槛和建议质量 |
 | 候选人与申请关系 | 混在 `candidates` 表 | 一人多岗、重复申请、人才库转正式申请会覆盖 |
@@ -268,9 +268,9 @@ started_at / finished_at
 - checkpoint 恢复；
 - dead-letter 人工处理队列；
 - 连接器真实 health probe；
-- 定时任务只有在 Gmail、飞书和虚构 E2E 验收后才能启用。
+- 定时任务只有在 Gmail、协作工具和虚构 E2E 验收后才能启用。
 
-GitHub Actions 可以作为无服务器备用 runner，但不应存放真实简历或候选人 PII；部门本机/受控运行环境仍是优先方案。
+GitHub Actions 可以作为无服务器备用 runner，但不应存放真实简历或候选人 PII；本机/受控运行环境仍是优先方案。
 
 ### 7. P1：面试、反馈、Offer 拆分
 
@@ -351,7 +351,7 @@ recruitment_activity
 - 保留 `recruitment-ops-run` 作为完整轮次入口；
 - 增加清晰的窄入口：`prepare-content`、`process-inbox`、`review-candidate`、`pipeline-review`、`daily-digest`；
 - setup 内部明确为 `profile → source → destination → policy → acceptance`；
-- Gmail、Feishu、Notification 各自有 doctor；
+- Gmail、collaboration、Notification 各自有 doctor；
 - 在干净 Codex 和 Claude Code 环境分别做安装、Skill 发现、adapter 启动、虚构邮件 E2E；
 - “配置完成”与“真实验收完成”必须是不同状态。
 
@@ -366,7 +366,7 @@ recruitment_activity
 - 解析器字段级准确率、Top-3 recall、岗位间漂移和 reviewer calibration 看板；
 - 有合法基础、最小样本量和独立复核后的群体公平性统计。
 
-不要现在就做完整职位门户、统一 HRIS 或多 ATS 空壳。不同部门继续使用自己的 Gmail 和飞书 Base，不需要为了“平台感”制造一个新的中央主数据源。
+不要现在就做完整职位门户、统一 HRIS 或多 ATS 空壳。不同工作区继续使用自己的 Gmail 和招聘数据表，不需要为了“平台感”制造一个新的中央主数据源。
 
 ## 四、明确不采用的能力
 
@@ -383,7 +383,7 @@ recruitment_activity
 
 ### 完整部署 Frappe HRMS 或 OpenCATS
 
-这两套系统都有独立服务器、数据库、账户、权限和升级运维面。当前插件已经选择飞书 Base 作为部门事实源，再部署完整 ATS 会产生双主数据。
+这两套系统都有独立服务器、数据库、账户、权限和升级运维面。当前插件已经选择招聘数据表作为工作区事实源，再部署完整 ATS 会产生双主数据。
 
 只有公司决定统一替换 HRIS/ATS 时，才应单独立项评估；不应让招聘插件偷偷演变成 HR 平台。
 
@@ -405,9 +405,9 @@ recruitment_activity
 
 ### v0.2：生产可信度与正确数据模型
 
-目标：先让真实部门能稳定跑，且一人多岗不失真。
+目标：先让真实使用场景能稳定跑，且一人多岗不失真。
 
-- Gmail/Feishu/Notification 真实 adapter 与 doctor；
+- Gmail/collaboration/Notification 真实 adapter 与 doctor；
 - Candidate / Application 分离；
 - Application Stage History；
 - `resume-evidence.json`；
@@ -426,7 +426,7 @@ recruitment_activity
 - 低置信度解析不会进入 `hr_screen`；
 - 每项匹配都能回到原始事实；
 - 模型/Prompt 变化会生成可审阅差异包；
-- Gmail 写/飞书写/日报发送均有 readback receipt。
+- Gmail 写/协作工具写/日报发送均有 readback receipt。
 
 ### v0.3：面试闭环和招聘运营
 
@@ -451,7 +451,7 @@ recruitment_activity
 
 如果下一版只能做三项：
 
-1. **真实 Gmail + 飞书 adapter 与可恢复运行器；**
+1. **真实 Gmail + 协作工具 adapter 与可恢复运行器；**
 2. **Candidate–Application–Job + 阶段历史；**
 3. **resume-evidence + Golden/E2E 评测。**
 

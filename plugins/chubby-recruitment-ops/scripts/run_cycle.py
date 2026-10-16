@@ -136,7 +136,10 @@ def execute_cycle(
 
     connection = connect(state_db)
     run_id = f"RUN-{uuid.uuid4().hex}"
-    lock_name = f"recruitment-cycle:{payload.get('department_id', 'default')}"
+    workspace_key = (
+        payload.get("workspace_id") or payload.get("department_id") or "default"
+    )
+    lock_name = f"recruitment-cycle:{workspace_key}"
     lease_token = claim_run_lock(
         connection,
         lock_name=lock_name,
@@ -198,7 +201,7 @@ def execute_cycle(
             "recommendation": result,
             "counts": counts,
             "next_step": (
-                "Deliver pending outbox items through the authorized Feishu "
+                "Deliver pending outbox items through the authorized collaboration "
                 "adapter, then record each returned message ID."
             ),
         }

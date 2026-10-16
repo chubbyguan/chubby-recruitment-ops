@@ -19,7 +19,7 @@ The selected adapter must support:
 
 Do not mark mail processed before candidate and log writes succeed.
 
-## Feishu capability contract
+## Collaboration capability contract
 
 The selected adapter must support:
 
@@ -30,11 +30,15 @@ The selected adapter must support:
 - send a message to a configured private chat or restricted group;
 - read back the written record and sent message for acceptance.
 
-Logical table names must be mapped in config. Never bake a department's App Token, Table ID, Chat ID, or Open ID into the plugin.
+Logical table names must be mapped in config. Never bake a workspace's App Token, Table ID, Chat ID, or Open ID into the plugin.
+
+## Optional ATS adapter
+
+When `connectors.ats.enabled` is true, `sync_ats.py` reads jobs, talents, applications, and interviews through `connectors.ats.cli_binary`. Point that setting at the installed collaboration CLI executable name or absolute path. The binary must accept `api GET` for the hire OpenAPI paths and `base +record-list`, `base +record-upsert`, and `base +record-get` for the recruitment data table. The adapter stays read-only against the ATS and writes only source-owned fields. It does not advance the local watermark unless every data-table upsert succeeds.
 
 ## Interview capability contract
 
-The selected Feishu adapters must support:
+The selected collaboration adapters must support:
 
 - search Calendar events by participant and time window;
 - return stable event IDs and planned start/end;
@@ -62,7 +66,7 @@ Every job must expose:
 
 - stable job ID;
 - source record ID, source revision, modified time, and live readback time;
-- title and department;
+- title and organization;
 - status or gate;
 - JD version;
 - location and work mode;
@@ -82,7 +86,7 @@ Every matching run must use a current eligible-job snapshot containing job ID, j
 
 ## Base minimum model
 
-Use `<plugin-root>/assets/feishu-base-schema.json` as the logical model.
+Use `<plugin-root>/assets/recruitment-data-schema.json` as the logical model.
 
 The candidate table remains the sole candidate master. Applications are separate job-level facts. Interview sessions preserve the role actually interviewed. Artifact and evaluation tables store references and structured scores, not full transcripts. Campaign, content, publication, metric, attribution, mail, decision, and run tables contain process facts only.
 
@@ -102,4 +106,4 @@ Keep:
 - run log record ID;
 - digest message ID and readback result.
 
-Delete the synthetic candidate and attachment after acceptance unless the department explicitly keeps test records in a clearly marked test area.
+Delete the synthetic candidate and attachment after acceptance unless the workspace explicitly keeps test records in a clearly marked test area.

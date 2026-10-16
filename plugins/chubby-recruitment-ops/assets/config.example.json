@@ -1,6 +1,6 @@
 {
   "schema_version": "4.0",
-  "department_id": "replace-with-department-id",
+  "workspace_id": "replace-with-workspace-id",
   "timezone": "Asia/Shanghai",
   "company": {
     "public_name": "诺特兰德集团",
@@ -57,7 +57,7 @@
       "inbox_query": "has:attachment newer_than:30d",
       "processed_label": "recruitment/processed"
     },
-    "feishu": {
+    "collaboration": {
       "adapter": "auto",
       "calendar_adapter": "auto",
       "vc_adapter": "auto",
@@ -84,17 +84,18 @@
         "automation_log": "SET_LOCALLY"
       }
     },
-    "feishu_hire": {
+    "ats": {
       "enabled": false,
-      "adapter": "lark-cli",
+      "adapter": "collaboration-cli",
+      "cli_binary": "collaboration-cli",
       "identity": "bot",
       "base_identity": "user",
-      "source": "feishu_hire_v1",
+      "source": "ats_hire_v1",
       "page_size": 100,
       "lookback_days": 30,
       "watermark_overlap_seconds": 300,
       "mapped_jobs": {
-        "replace-with-feishu-hire-job-id": {
+        "replace-with-ats-job-id": {
           "internal_job_id": "replace-with-internal-job-id",
           "expected_title": "replace-with-approved-job-title"
         }
@@ -102,7 +103,7 @@
     }
   },
   "job_policy": {
-    "source": "feishu_base",
+    "source": "data_table",
     "open_statuses": [
       "open",
       "招聘中"
@@ -178,7 +179,7 @@
   "privacy": {
     "retention_days": 180,
     "authorized_reviewers": [],
-    "store_resume_attachments_in_feishu": false,
+    "store_resume_attachments_in_data_table": false,
     "redact_digest_contact_details": true
   },
   "controls": {

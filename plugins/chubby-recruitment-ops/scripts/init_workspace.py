@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Initialize a department-local recruitment operations workspace."""
+"""Initialize a workspace-local recruitment operations workspace."""
 
 from __future__ import annotations
 
@@ -23,7 +23,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--email", required=True)
     parser.add_argument("--timezone", default="Asia/Shanghai")
-    parser.add_argument("--department-id", default="replace-with-department-id")
+    parser.add_argument("--workspace-id", default=None)
+    parser.add_argument("--department-id", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--company-name", default="诺特兰德集团")
     parser.add_argument(
         "--force",
@@ -67,7 +68,11 @@ def initialize(args: argparse.Namespace) -> dict[str, object]:
 
     email = validate_email(args.email)
     config = json.loads(template_path.read_text(encoding="utf-8"))
-    config["department_id"] = args.department_id
+    config["workspace_id"] = (
+        getattr(args, "workspace_id", None)
+        or getattr(args, "department_id", None)
+        or "replace-with-workspace-id"
+    )
     config["timezone"] = args.timezone
     company_name = str(
         getattr(args, "company_name", config["company"]["public_name"])
@@ -125,8 +130,8 @@ def initialize(args: argparse.Namespace) -> dict[str, object]:
         "state_db": str(state_db),
         "schedule_enabled": False,
         "next_steps": [
-            "map the department job, salary approval source, and Feishu Base tables",
-            "authorize Gmail and Feishu adapters",
+            "map the workspace job, salary approval source, and recruitment data tables",
+            "authorize Gmail and collaboration adapters",
             "run doctor.py",
             "complete campaign, interview, and synthetic end-to-end acceptance",
         ],

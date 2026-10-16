@@ -66,9 +66,9 @@ QUICK_STAGES = {
     ],
     "hire_sync": [
         "load_private_config",
-        "bounded_feishu_hire_identity_probe",
+        "bounded_ats_identity_probe",
         "mapped_job_gate_read",
-        "feishu_hire_incremental_batch",
+        "ats_incremental_batch",
         "batch_base_write",
         "single_readback",
         "run_log",
@@ -121,7 +121,7 @@ QUICK_FORBIDDEN = [
     "full_connector_doctor",
     "full_mailbox_scan",
     "full_calendar_scan",
-    "full_feishu_hire_sync",
+    "full_ats_sync",
     "full_refresh_before_digest",
     "repository_edit",
     "package_test_suite",
@@ -140,7 +140,7 @@ SCHEDULED_FORBIDDEN = [
 
 MAINTENANCE_FORBIDDEN = [
     "gmail_read",
-    "feishu_hire_sync",
+    "ats_sync",
     "candidate_base_write",
     "calendar_write",
     "candidate_notification",
@@ -202,7 +202,7 @@ def scheduled_plan(task: str, trigger: str, hour: int | None) -> dict[str, Any]:
         "load_private_config",
         "bounded_connector_identity_probe",
         "eligible_job_snapshot",
-        "feishu_hire_incremental_if_enabled",
+        "ats_incremental_if_enabled",
         "gmail_incremental_batch",
         "recommendation_for_changed_candidates",
     ]

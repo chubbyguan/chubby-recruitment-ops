@@ -13,12 +13,11 @@ from typing import Any
 
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
-FEISHU_IDENTIFIER = re.compile(
+WORKSPACE_RECORD_ID = re.compile(
     r"\b(?:tbl|oc_|om_|ou_|bascn)[A-Za-z0-9_-]{10,}\b"
 )
-FEISHU_DOCUMENT_URL = re.compile(
-    r"https://[^\s/]+(?:\.feishu\.cn|\.larksuite\.com)"
-    r"/(?:docx|wiki)/[A-Za-z0-9]+"
+INTERNAL_DOCUMENT_URL = re.compile(
+    r"https://[^\s/]+/(?:docx|wiki)/[A-Za-z0-9]+"
 )
 SECRET_TOKEN = re.compile(
     r"(?:"
@@ -140,7 +139,7 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "assets" / "execution-profiles.example.json",
         plugin_root / "assets" / "job.example.json",
         plugin_root / "assets" / "eligible-jobs.example.json",
-        plugin_root / "assets" / "feishu-base-schema.json",
+        plugin_root / "assets" / "recruitment-data-schema.json",
         plugin_root / "assets" / "social-campaign-template.md",
         plugin_root / "assets" / "channel-playbook.md",
         plugin_root / "assets" / "digest-input.example.json",
@@ -159,7 +158,7 @@ def validate(repo_root: Path) -> list[str]:
         plugin_root / "scripts" / "plan_execution.py",
         plugin_root / "scripts" / "run_cycle.py",
         plugin_root / "scripts" / "state_store.py",
-        plugin_root / "scripts" / "sync_feishu_hire.py",
+        plugin_root / "scripts" / "sync_ats.py",
         plugin_root / "scripts" / "validate_base_mapping.py",
         plugin_root / "scripts" / "reconcile_interviews.py",
         plugin_root / "scripts" / "render_decision_notification.py",
@@ -184,7 +183,7 @@ def validate(repo_root: Path) -> list[str]:
     )
     load_json(plugin_root / "assets" / "config.example.json", errors)
     load_json(plugin_root / "assets" / "execution-profiles.example.json", errors)
-    load_json(plugin_root / "assets" / "feishu-base-schema.json", errors)
+    load_json(plugin_root / "assets" / "recruitment-data-schema.json", errors)
     load_json(plugin_root / "assets" / "assessment.example.json", errors)
     load_json(plugin_root / "assets" / "digest-input.example.json", errors)
     load_json(plugin_root / "assets" / "interview-reconciliation.example.json", errors)
@@ -250,10 +249,10 @@ def validate(repo_root: Path) -> list[str]:
             errors.append(f"{path}: unresolved scaffold TODO")
         if SECRET_TOKEN.search(text):
             errors.append(f"{path}: possible secret token")
-        if FEISHU_IDENTIFIER.search(text):
-            errors.append(f"{path}: possible hard-coded Feishu identifier")
-        if FEISHU_DOCUMENT_URL.search(text):
-            errors.append(f"{path}: internal Feishu document URL is not allowed")
+        if WORKSPACE_RECORD_ID.search(text):
+            errors.append(f"{path}: possible hard-coded workspace record identifier")
+        if INTERNAL_DOCUMENT_URL.search(text):
+            errors.append(f"{path}: internal document URL is not allowed")
         for email in EMAIL.findall(text):
             if not email.lower().endswith("@" + ALLOWED_EXAMPLE_DOMAIN):
                 errors.append(f"{path}: non-example email found: {email}")

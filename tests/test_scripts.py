@@ -35,9 +35,9 @@ from render_decision_notification import (  # noqa: E402
 )
 from render_digest import render  # noqa: E402
 from reconcile_interviews import reconcile  # noqa: E402
-from sync_feishu_hire import (  # noqa: E402
+from sync_ats import (  # noqa: E402
     AdapterError,
-    LarkCli,
+    CollaborationCli,
     build_base_operations,
     build_snapshot,
     normalize_interview,
@@ -73,7 +73,7 @@ class PreflightTests(unittest.TestCase):
     def test_installed_package_preflight_passes_without_live_connectors(self) -> None:
         available = {
             "codex": "/usr/local/bin/codex",
-            "lark-cli": "/usr/local/bin/lark-cli",
+            "collaboration-cli": "/usr/local/bin/collaboration-cli",
         }
         result = run_preflight(
             PLUGIN_ROOT,
@@ -528,7 +528,7 @@ class StateStoreTests(unittest.TestCase):
             fingerprint = hashlib.sha256(b"snapshot-1").hexdigest()
             stored = set_source_watermark(
                 connection,
-                source_name="feishu_hire_v1",
+                source_name="ats_hire_v1",
                 stream_name="applications",
                 watermark="1785326400000",
                 snapshot_fingerprint=fingerprint,
@@ -537,7 +537,7 @@ class StateStoreTests(unittest.TestCase):
             self.assertEqual(
                 get_source_watermark(
                     connection,
-                    source_name="feishu_hire_v1",
+                    source_name="ats_hire_v1",
                     stream_name="applications",
                 )["snapshot_fingerprint"],
                 fingerprint,
@@ -545,7 +545,7 @@ class StateStoreTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 set_source_watermark(
                     connection,
-                    source_name="feishu_hire_v1",
+                    source_name="ats_hire_v1",
                     stream_name="applications",
                     watermark="1785326300000",
                     snapshot_fingerprint=hashlib.sha256(b"snapshot-2").hexdigest(),
@@ -553,15 +553,15 @@ class StateStoreTests(unittest.TestCase):
             connection.close()
 
 
-class FeishuHireSyncTests(unittest.TestCase):
+class AtsSyncTests(unittest.TestCase):
     def setUp(self) -> None:
         self.config = {
             "timezone": "Asia/Shanghai",
             "connectors": {
-                "feishu_hire": {
+                "ats": {
                     "enabled": True,
-                    "adapter": "lark-cli",
-                    "source": "feishu_hire_v1",
+                    "adapter": "collaboration-cli",
+                    "source": "ats_hire_v1",
                     "identity": "bot",
                     "base_identity": "user",
                     "page_size": 100,
@@ -574,7 +574,7 @@ class FeishuHireSyncTests(unittest.TestCase):
                         }
                     },
                 },
-                "feishu": {
+                "collaboration": {
                     "base_app_token": "BASE-DEMO",
                     "tables": {
                         "candidates": "TABLE-CANDIDATES",
@@ -675,7 +675,7 @@ class FeishuHireSyncTests(unittest.TestCase):
             readback_at="2026-07-29T18:00:00+08:00",
         )
         self.assertTrue(verify_snapshot(snapshot))
-        self.assertEqual(snapshot["source"]["name"], "feishu_hire_v1")
+        self.assertEqual(snapshot["source"]["name"], "ats_hire_v1")
         self.assertEqual(snapshot["counts"]["applications"], 1)
         self.assertEqual(snapshot["candidates"][0]["candidate_id"], "HIRE-TALENT-1")
         self.assertTrue(snapshot["candidates"][0]["untrusted_resume_text"])
@@ -775,7 +775,7 @@ class FeishuHireSyncTests(unittest.TestCase):
                     "fields": {
                         "面试ID": "HIRE-INTERVIEW-1",
                         "状态": "已完成",
-                        "备注": "来源=飞书招聘；仅同步来源事实，不代表人工最终决定",
+                        "备注": "来源=招聘系统；仅同步来源事实，不代表人工最终决定",
                     },
                 }
             ],
@@ -786,7 +786,7 @@ class FeishuHireSyncTests(unittest.TestCase):
         self.assertNotIn("状态", client.written)
         self.assertNotIn("备注", client.written)
 
-    def test_lark_cli_retries_rate_limit_with_bounded_backoff(self) -> None:
+    def test_collaboration_cli_retries_rate_limit_with_bounded_backoff(self) -> None:
         delayed: list[float] = []
         responses = [
             subprocess.CompletedProcess(
@@ -811,7 +811,7 @@ class FeishuHireSyncTests(unittest.TestCase):
                 stderr="",
             ),
         ]
-        cli = LarkCli(
+        cli = CollaborationCli(
             binary="true",
             max_attempts=3,
             retry_base_seconds=0.5,
@@ -819,7 +819,7 @@ class FeishuHireSyncTests(unittest.TestCase):
             sleeper=delayed.append,
         )
         with patch(
-            "sync_feishu_hire.subprocess.run",
+            "sync_ats.subprocess.run",
             side_effect=responses,
         ) as mocked:
             result = cli.run(["api", "GET", "/demo"])
@@ -827,7 +827,7 @@ class FeishuHireSyncTests(unittest.TestCase):
         self.assertEqual(mocked.call_count, 2)
         self.assertEqual(delayed, [0.5])
 
-    def test_lark_cli_does_not_retry_permission_error(self) -> None:
+    def test_collaboration_cli_does_not_retry_permission_error(self) -> None:
         delayed: list[float] = []
         response = subprocess.CompletedProcess(
             args=[],
@@ -844,13 +844,13 @@ class FeishuHireSyncTests(unittest.TestCase):
             ),
             stderr="",
         )
-        cli = LarkCli(
+        cli = CollaborationCli(
             binary="true",
             max_attempts=4,
             sleeper=delayed.append,
         )
         with patch(
-            "sync_feishu_hire.subprocess.run",
+            "sync_ats.subprocess.run",
             return_value=response,
         ) as mocked:
             with self.assertRaises(AdapterError):
@@ -1622,13 +1622,13 @@ class InterviewEvaluationTests(unittest.TestCase):
 class InitializationTests(unittest.TestCase):
     def test_initialization_creates_private_local_state(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir) / "department"
+            workspace = Path(temp_dir) / "workspace"
             result = initialize(
                 argparse.Namespace(
                     workspace=workspace,
                     email="jobs-test@example.com",
                     timezone="Asia/Shanghai",
-                    department_id="demo",
+                    workspace_id="demo",
                     force=False,
                 )
             )
@@ -1661,13 +1661,13 @@ class InitializationTests(unittest.TestCase):
 
     def test_schema_two_config_migrates_with_private_backup(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir) / "department"
+            workspace = Path(temp_dir) / "workspace"
             initialize(
                 argparse.Namespace(
                     workspace=workspace,
                     email="jobs-test@example.com",
                     timezone="Asia/Shanghai",
-                    department_id="demo",
+                    workspace_id="demo",
                     force=False,
                 )
             )
@@ -1676,20 +1676,20 @@ class InitializationTests(unittest.TestCase):
             config["schema_version"] = "2.0"
             config.pop("execution")
             config.pop("recommendation_policy")
-            config["connectors"]["feishu"]["tables"].pop("evidence_facts")
+            config["connectors"]["collaboration"]["tables"].pop("evidence_facts")
             for key in (
                 "calendar_adapter",
                 "vc_adapter",
                 "minutes_adapter",
             ):
-                del config["connectors"]["feishu"][key]
+                del config["connectors"]["collaboration"][key]
             for key in (
                 "interviews",
                 "interview_artifacts",
                 "interview_evaluations",
                 "decision_queue",
             ):
-                del config["connectors"]["feishu"]["tables"][key]
+                del config["connectors"]["collaboration"]["tables"][key]
             del config["interview_policy"]
             del config["schedule"]["interview_reconcile_hours"]
             del config["schedule"]["decision_digest_hour"]
@@ -1719,13 +1719,13 @@ class InitializationTests(unittest.TestCase):
 
     def test_schema_three_config_migrates_to_v4_and_reports_collisions(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir) / "department"
+            workspace = Path(temp_dir) / "workspace"
             initialize(
                 argparse.Namespace(
                     workspace=workspace,
                     email="jobs-test@example.com",
                     timezone="Asia/Shanghai",
-                    department_id="demo",
+                    workspace_id="demo",
                     force=False,
                 )
             )
@@ -1734,14 +1734,14 @@ class InitializationTests(unittest.TestCase):
             config["schema_version"] = "3.0"
             config.pop("execution")
             config.pop("recommendation_policy")
-            config["connectors"]["feishu"]["tables"].pop("evidence_facts")
+            config["connectors"]["collaboration"]["tables"].pop("evidence_facts")
             shared_table = "demo-shared-candidate-table"
             for name in (
                 "candidates",
                 "applications",
                 "application_stage_history",
             ):
-                config["connectors"]["feishu"]["tables"][name] = shared_table
+                config["connectors"]["collaboration"]["tables"][name] = shared_table
             config_path.write_text(json.dumps(config), encoding="utf-8")
 
             preview = migrate_v4(workspace)
@@ -1764,7 +1764,7 @@ class InitializationTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        tables = config["connectors"]["feishu"]["tables"]
+        tables = config["connectors"]["collaboration"]["tables"]
         for name in tables:
             tables[name] = f"demo-{name}"
         for name in (
@@ -1830,24 +1830,24 @@ class InitializationTests(unittest.TestCase):
 
     def test_doctor_passes_completed_local_mapping(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir) / "department"
+            workspace = Path(temp_dir) / "workspace"
             initialize(
                 argparse.Namespace(
                     workspace=workspace,
                     email="jobs-test@example.com",
                     timezone="Asia/Shanghai",
-                    department_id="demo",
+                    workspace_id="demo",
                     force=False,
                 )
             )
             config_path = workspace / ".recruitment-ops" / "config.json"
             config = json.loads(config_path.read_text(encoding="utf-8"))
             config["privacy"]["authorized_reviewers"] = ["reviewer-demo"]
-            feishu = config["connectors"]["feishu"]
-            feishu["base_app_token"] = "demo-base"
-            feishu["digest_recipient_id"] = "demo-recipient"
-            for table_name in feishu["tables"]:
-                feishu["tables"][table_name] = f"demo-{table_name}"
+            collaboration = config["connectors"]["collaboration"]
+            collaboration["base_app_token"] = "demo-base"
+            collaboration["digest_recipient_id"] = "demo-recipient"
+            for table_name in collaboration["tables"]:
+                collaboration["tables"][table_name] = f"demo-{table_name}"
             config_path.write_text(
                 json.dumps(config, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
@@ -1859,13 +1859,13 @@ class InitializationTests(unittest.TestCase):
 
     def test_doctor_rejects_missing_controls_secret_and_bad_nested_type(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir) / "department"
+            workspace = Path(temp_dir) / "workspace"
             initialize(
                 argparse.Namespace(
                     workspace=workspace,
                     email="jobs-test@example.com",
                     timezone="Asia/Shanghai",
-                    department_id="demo",
+                    workspace_id="demo",
                     force=False,
                 )
             )
@@ -1885,13 +1885,13 @@ class InitializationTests(unittest.TestCase):
 
     def test_doctor_rejects_unapproved_company_and_salary_policy(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir) / "department"
+            workspace = Path(temp_dir) / "workspace"
             initialize(
                 argparse.Namespace(
                     workspace=workspace,
                     email="jobs-test@example.com",
                     timezone="Asia/Shanghai",
-                    department_id="demo",
+                    workspace_id="demo",
                     company_name="诺特兰德集团",
                     force=False,
                 )
@@ -1914,13 +1914,13 @@ class InitializationTests(unittest.TestCase):
 
     def test_doctor_reports_malformed_leaf_types_without_crashing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir) / "department"
+            workspace = Path(temp_dir) / "workspace"
             initialize(
                 argparse.Namespace(
                     workspace=workspace,
                     email="jobs-test@example.com",
                     timezone="Asia/Shanghai",
-                    department_id="demo",
+                    workspace_id="demo",
                     force=False,
                 )
             )
@@ -1929,8 +1929,8 @@ class InitializationTests(unittest.TestCase):
             config["connectors"]["email"]["account"] = []
             config["channels"]["enabled"] = [1]
             config["channels"]["metric_windows_hours"] = [True]
-            config["connectors"]["feishu"]["base_app_token"] = []
-            config["connectors"]["feishu_hire"]["enabled"] = 1
+            config["connectors"]["collaboration"]["base_app_token"] = []
+            config["connectors"]["ats"]["enabled"] = 1
             config_path.write_text(json.dumps(config), encoding="utf-8")
 
             result = run_doctor(workspace)
@@ -1939,17 +1939,17 @@ class InitializationTests(unittest.TestCase):
             self.assertIn("email", codes)
             self.assertIn("channels", codes)
             self.assertIn("metric-windows", codes)
-            self.assertIn("feishu-base", codes)
-            self.assertIn("feishu-hire", codes)
+            self.assertIn("data-table", codes)
+            self.assertIn("ats", codes)
 
     def test_force_preserves_local_templates(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir) / "department"
+            workspace = Path(temp_dir) / "workspace"
             arguments = argparse.Namespace(
                 workspace=workspace,
                 email="jobs-test@example.com",
                 timezone="Asia/Shanghai",
-                department_id="demo",
+                workspace_id="demo",
                 force=False,
             )
             initialize(arguments)
@@ -1969,13 +1969,13 @@ class InitializationTests(unittest.TestCase):
                 check=True,
                 capture_output=True,
             )
-            workspace = repository / "nested" / "department"
+            workspace = repository / "nested" / "workspace"
             initialize(
                 argparse.Namespace(
                     workspace=workspace,
                     email="jobs-test@example.com",
                     timezone="Asia/Shanghai",
-                    department_id="demo",
+                    workspace_id="demo",
                     force=False,
                 )
             )
@@ -1984,11 +1984,11 @@ class InitializationTests(unittest.TestCase):
             local_gitignore.unlink()
             config = json.loads(config_path.read_text(encoding="utf-8"))
             config["privacy"]["authorized_reviewers"] = ["reviewer-demo"]
-            feishu = config["connectors"]["feishu"]
-            feishu["base_app_token"] = "demo-base"
-            feishu["digest_recipient_id"] = "demo-recipient"
-            for table_name in feishu["tables"]:
-                feishu["tables"][table_name] = f"demo-{table_name}"
+            collaboration = config["connectors"]["collaboration"]
+            collaboration["base_app_token"] = "demo-base"
+            collaboration["digest_recipient_id"] = "demo-recipient"
+            for table_name in collaboration["tables"]:
+                collaboration["tables"][table_name] = f"demo-{table_name}"
             config_path.write_text(json.dumps(config), encoding="utf-8")
 
             result = run_doctor(workspace)
@@ -2009,7 +2009,7 @@ class CampaignTests(unittest.TestCase):
         self.job = {
             "岗位ID": "AI-PM-01",
             "岗位名称": "AI 产品经理",
-            "部门": "创新业务",
+            "组织": "创新业务",
             "岗位状态": "招聘中",
             "JD版本": "V2.1",
             "工作地点": "济南",
@@ -2258,7 +2258,7 @@ class PackageTests(unittest.TestCase):
             copied_repo = Path(temp_dir) / "repo"
             shutil.copytree(REPO_ROOT, copied_repo, ignore=shutil.ignore_patterns(".git"))
             (copied_repo / ".env.production").write_text(
-                "LARK_APP_SECRET=synthetic-secret-value\n",
+                "CONNECTOR_APP_SECRET=synthetic-secret-value\n",
                 encoding="utf-8",
             )
             (copied_repo / "candidate.csv").write_text(
@@ -2269,21 +2269,21 @@ class PackageTests(unittest.TestCase):
             self.assertTrue(any(".env.production" in error for error in errors))
             self.assertTrue(any("candidate.csv" in error for error in errors))
 
-    def test_internal_feishu_document_url_is_rejected(self) -> None:
+    def test_internal_collaboration_document_url_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             copied_repo = Path(temp_dir) / "repo"
             shutil.copytree(REPO_ROOT, copied_repo, ignore=shutil.ignore_patterns(".git"))
             (copied_repo / "internal-link.md").write_text(
                 "https://"
                 + "tenant"
-                + ".feishu.cn"
+                + ".collaboration.cn"
                 + "/docx/"
                 + "Abcdef1234567890\n",
                 encoding="utf-8",
             )
             errors = validate(copied_repo)
             self.assertTrue(
-                any("internal Feishu document URL" in error for error in errors)
+                any("internal document URL" in error for error in errors)
             )
 
 

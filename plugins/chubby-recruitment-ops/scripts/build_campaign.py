@@ -364,7 +364,7 @@ def build_campaign(
         "job_snapshot": {
             "job_id": job_id,
             "title": title,
-            "department": first(job, "department", "部门"),
+            "organization": first(job, "organization", "组织"),
             "job_status": status,
             "gate": gate,
             "job_version": job_version,

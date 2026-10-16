@@ -86,7 +86,7 @@
 
 [`commands/workflow.md`](https://github.com/andrew-shwetzer/recruiter-plugin/blob/03b03f82883f176ae2057814fbf0c34e895375a8/commands/workflow.md#L52-L105) 给每一步输出状态，某一步没有结果时继续用已有数据。这个交互适合我们的“完整轮次”：
 
-`岗位门禁 → 小红书内容 → 邮箱增量 → 去重 → 匹配评分 → 飞书回写 → 日报`
+`岗位门禁 → 小红书内容 → 邮箱增量 → 去重 → 匹配评分 → 协作工具回写 → 日报`
 
 建议增加：
 
@@ -113,7 +113,7 @@
 
 建议我们升级：
 
-- 飞书 Base 增加 `last_stage_changed_at`、`next_action_at`、`stale_reason`；
+- 招聘数据表增加 `last_stage_changed_at`、`next_action_at`、`stale_reason`；
 - 日报增加“今日必须处理”和“超 SLA 候选人”；
 - 状态变更必须写操作者、时间、前后状态与原因。
 
@@ -181,7 +181,7 @@
 - Codex Automation 作为默认；
 - GitHub Actions 作为无人值守备选；
 - 两者都调用同一入口，不复制业务逻辑；
-- 增加并发锁，防止同一部门同时启用两个 runner；
+- 增加并发锁，防止同一工作区同时启用两个 runner；
 - 每次 run 写开始、结束、处理量、失败量和费用。
 
 #### B. 小批量处理、速率限制和重试
@@ -199,9 +199,9 @@
 
 #### C. 数据层的状态、索引和查询函数
 
-`jobs` 表包含 `status`、`is_active`、`resume_score`、`last_checked`、`resume_score_stage`，并给评分、状态、抓取时间建索引。这个模式可映射到我们的飞书 Base + 本地 SQLite：
+`jobs` 表包含 `status`、`is_active`、`resume_score`、`last_checked`、`resume_score_stage`，并给评分、状态、抓取时间建索引。这个模式可映射到我们的招聘数据表 + 本地 SQLite：
 
-- 业务状态放飞书；
+- 业务状态放协作工具；
 - 去重键、run、checkpoint、retry 放 SQLite；
 - 日报从稳定聚合字段读取，而不是重新扫描全部附件。
 
@@ -267,7 +267,7 @@
 
 #### C. 可组合查询和 Top N 报告
 
-CandidateDB 可按状态、是否有链接、来源关键词、日期组合过滤，并输出 pipeline stats；这适合映射为飞书筛选视图和日报明细。
+CandidateDB 可按状态、是否有链接、来源关键词、日期组合过滤，并输出 pipeline stats；这适合映射为协作工具筛选视图和日报明细。
 
 #### D. 安全停止思路
 
@@ -342,8 +342,8 @@ BOSS 直聘官方公开的 [用户协议（2019-09-30 版）](https://www.zhipin
 ### P0：先补生产可信度
 
 1. **审计事件表**
-   - `event_id/run_id/department/actor/action/object_type/object_id/before/after/reason/source/timestamp`
-   - 评分、人工覆盖、状态迁移、外部草稿/发送、飞书写入都记事件。
+   - `event_id/run_id/workspace/actor/action/object_type/object_id/before/after/reason/source/timestamp`
+   - 评分、人工覆盖、状态迁移、外部草稿/发送、数据表写入都记事件。
 2. **外部写统一审批**
    - 邮件、邀约、ATS 提交、岗位开关、定时任务激活全部走 preview → confirm → execute → receipt。
 3. **评分数据最小化**
@@ -383,14 +383,14 @@ BOSS 直聘官方公开的 [用户协议（2019-09-30 版）](https://www.zhipin
 
 1. **ATS Adapter**
    - 先定义 `list_jobs/create_candidate/add_note/get_status` contract；
-   - 首个真实部门确认在用的 ATS 后再实现，避免为了“支持很多 ATS”堆空壳。
+   - 首个真实使用场景确认在用的 ATS 后再实现，避免为了“支持很多 ATS”堆空壳。
 2. **官方 sourcing**
    - 仅接供应商有明确授权和删除机制的 API；
    - 做数据来源标签、授权依据、导入时间和删除期限。
 3. **日历与邀约**
    - 默认创建草稿/待确认事件，不自动邀请候选人。
 4. **市场/漏斗简报**
-   - 可借鉴 recruiter-plugin 的 briefing 结构，但数据只来自业务部门授权源。
+   - 可借鉴 recruiter-plugin 的 briefing 结构，但数据只来自招聘工作区授权源。
 
 ## 七、明确的“不做清单”
 

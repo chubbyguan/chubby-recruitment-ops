@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Synchronize Feishu Hire facts into the recruitment workflow and Base.
+"""Synchronize ATS facts into the recruitment workflow and Base.
 
-The adapter is deliberately read-only against Feishu Hire. It writes only
+The adapter is deliberately read-only against ATS. It writes only
 source-owned, minimal fields into the configured recruitment Base and advances
 the local watermark only after every Base upsert succeeds.
 """
@@ -29,7 +29,7 @@ from state_store import (
 )
 
 
-SOURCE_NAME = "feishu_hire_v1"
+SOURCE_NAME = "ats_hire_v1"
 STREAM_NAME = "applications"
 SNAPSHOT_SCHEMA_VERSION = "1.0"
 INTERVIEW_SUMMARY_LABELS = {
@@ -141,7 +141,7 @@ def private_json_write(path: Path, payload: dict[str, Any]) -> None:
             temporary.unlink()
 
 
-class LarkCli:
+class CollaborationCli:
     RETRYABLE_CODES = {"429", "800004135"}
     RETRYABLE_SUBTYPES = {
         "rate_limited",
@@ -151,7 +151,7 @@ class LarkCli:
 
     def __init__(
         self,
-        binary: str = "lark-cli",
+        binary: str = "collaboration-cli",
         timeout_seconds: int = 60,
         max_attempts: int = 4,
         retry_base_seconds: float = 1,
@@ -160,7 +160,7 @@ class LarkCli:
     ) -> None:
         resolved = shutil.which(binary)
         if not resolved:
-            raise AdapterError(f"lark-cli not found: {binary}")
+            raise AdapterError(f"collaboration-cli not found: {binary}")
         if max_attempts <= 0:
             raise ValueError("max_attempts must be positive")
         if retry_base_seconds < 0 or retry_max_seconds < 0:
@@ -200,8 +200,6 @@ class LarkCli:
 
     def run(self, arguments: list[str]) -> dict[str, Any]:
         environment = os.environ.copy()
-        environment["LARKSUITE_CLI_NO_UPDATE_NOTIFIER"] = "1"
-        environment["LARKSUITE_CLI_NO_SKILLS_NOTIFIER"] = "1"
         for attempt in range(1, self.max_attempts + 1):
             try:
                 result = subprocess.run(
@@ -217,7 +215,7 @@ class LarkCli:
                     self.wait_before_retry(attempt)
                     continue
                 raise AdapterError(
-                    f"lark-cli timeout after {self.timeout_seconds}s "
+                    f"collaboration-cli timeout after {self.timeout_seconds}s "
                     f"({self.max_attempts} attempts)"
                 ) from exc
             raw = result.stdout.strip() or result.stderr.strip()
@@ -225,7 +223,7 @@ class LarkCli:
                 envelope = json.loads(raw)
             except json.JSONDecodeError as exc:
                 raise AdapterError(
-                    f"lark-cli returned non-JSON output (exit {result.returncode})"
+                    f"collaboration-cli returned non-JSON output (exit {result.returncode})"
                 ) from exc
             if result.returncode == 0 and envelope.get("ok"):
                 return envelope
@@ -243,7 +241,7 @@ class LarkCli:
                 f"{subtype}({code}): {message} "
                 f"(attempt {attempt}/{self.max_attempts})"
             )
-        raise AdapterError("lark-cli retry loop ended unexpectedly")
+        raise AdapterError("collaboration-cli retry loop ended unexpectedly")
 
     def api_get(
         self,
@@ -372,8 +370,8 @@ class LarkCli:
         }
 
 
-class FeishuHireClient:
-    def __init__(self, cli: LarkCli, identity: str = "bot") -> None:
+class AtsClient:
+    def __init__(self, cli: CollaborationCli, identity: str = "bot") -> None:
         self.cli = cli
         self.identity = identity
 
@@ -558,7 +556,7 @@ def normalize_talent(
         ),
         "education_count": len(education),
         "career_count": len(careers),
-        "resume_source": source_name or "飞书招聘",
+        "resume_source": source_name or "招聘系统",
         "has_resume": bool(
             application.get("talent_attachment_resume_id")
             or as_list(talent.get("resume_attachment_id_list"))
@@ -636,7 +634,7 @@ def normalize_application(
         "resume_source": localized_name(
             as_object(application.get("resume_source_info")).get("name")
         )
-        or "飞书招聘",
+        or "招聘系统",
         "has_resume": bool(application.get("talent_attachment_resume_id")),
         "modified_at": iso_from_ms(application.get("modify_time"), timezone_name),
         "stage_history": history,
@@ -695,24 +693,24 @@ def normalize_interview(
 
 def connector_config(config: dict[str, Any]) -> dict[str, Any]:
     connectors = as_object(config.get("connectors"))
-    hire = as_object(connectors.get("feishu_hire"))
+    hire = as_object(connectors.get("ats"))
     if hire.get("enabled") is not True:
-        raise ValueError("connectors.feishu_hire.enabled must be true")
-    if hire.get("adapter") != "lark-cli":
-        raise ValueError("connectors.feishu_hire.adapter must be lark-cli")
+        raise ValueError("connectors.ats.enabled must be true")
+    if hire.get("adapter") != "collaboration-cli":
+        raise ValueError("connectors.ats.adapter must be collaboration-cli")
     if hire.get("identity") != "bot":
-        raise ValueError("connectors.feishu_hire.identity must be bot")
+        raise ValueError("connectors.ats.identity must be bot")
     if hire.get("base_identity") not in {"user", "bot"}:
-        raise ValueError("connectors.feishu_hire.base_identity must be user or bot")
+        raise ValueError("connectors.ats.base_identity must be user or bot")
     if hire.get("source") != SOURCE_NAME:
-        raise ValueError(f"connectors.feishu_hire.source must be {SOURCE_NAME}")
+        raise ValueError(f"connectors.ats.source must be {SOURCE_NAME}")
     for field in ("page_size", "lookback_days", "watermark_overlap_seconds"):
         value = hire.get(field)
         if type(value) is not int or value <= 0:
-            raise ValueError(f"connectors.feishu_hire.{field} must be positive")
+            raise ValueError(f"connectors.ats.{field} must be positive")
     mappings = as_object(hire.get("mapped_jobs"))
     if not mappings:
-        raise ValueError("connectors.feishu_hire.mapped_jobs must not be empty")
+        raise ValueError("connectors.ats.mapped_jobs must not be empty")
     for hire_job_id, mapping in mappings.items():
         record = as_object(mapping)
         if (
@@ -721,7 +719,7 @@ def connector_config(config: dict[str, Any]) -> dict[str, Any]:
             or not clean_text(record.get("expected_title"), 300)
         ):
             raise ValueError(
-                "every Feishu Hire job mapping needs internal_job_id and expected_title"
+                "every ATS job mapping needs internal_job_id and expected_title"
             )
     return hire
 
@@ -853,7 +851,7 @@ def build_snapshot(
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "source": {
             "name": SOURCE_NAME,
-            "provenance": "official_feishu_openapi",
+            "provenance": "official_ats_openapi",
             "identity": clean_text(hire.get("identity"), 20) or "bot",
             "readback_at": readback,
             "since_ms": str(since_ms),
@@ -881,10 +879,10 @@ def build_snapshot(
 
 def verify_snapshot(snapshot: dict[str, Any]) -> bool:
     if snapshot.get("schema_version") != SNAPSHOT_SCHEMA_VERSION:
-        raise ValueError("unsupported Feishu Hire snapshot schema")
+        raise ValueError("unsupported ATS snapshot schema")
     source = as_object(snapshot.get("source"))
     if source.get("name") != SOURCE_NAME:
-        raise ValueError("snapshot source is not Feishu Hire")
+        raise ValueError("snapshot source is not ATS")
     for field in ("readback_at", "since_ms", "until_ms"):
         if not clean_text(source.get(field), 200):
             raise ValueError(f"snapshot source.{field} is required")
@@ -935,7 +933,7 @@ def stage_operations(application: dict[str, Any]) -> list[dict[str, Any]]:
             "变更前阶段": clean_text(stage.get("from_stage"), 300),
             "变更后阶段": clean_text(stage.get("to_stage"), 300),
             "变更人": SOURCE_NAME,
-            "决策理由": "飞书招聘阶段事实同步；不代表自动决策",
+            "决策理由": "招聘系统阶段事实同步；不代表自动决策",
         }
         changed_at = base_datetime(clean_text(stage.get("changed_at"), 100))
         if changed_at:
@@ -970,7 +968,7 @@ def build_base_operations(
         fields: dict[str, Any] = {
             "候选人唯一ID": clean_text(item.get("candidate_id"), 100),
             "候选人": clean_text(item.get("name"), 200) or "待核验候选人",
-            "数据来源": "飞书招聘",
+            "数据来源": "招聘系统",
             "简历来源": clean_text(item.get("resume_source"), 300),
             "工作年限": str(item.get("experience_years") or ""),
             "现任公司": clean_text(item.get("current_company"), 300),
@@ -993,7 +991,7 @@ def build_base_operations(
             "投递ID": clean_text(item.get("application_id"), 100),
             "候选人唯一ID": clean_text(item.get("candidate_id"), 100),
             "岗位ID": clean_text(item.get("internal_job_id"), 100),
-            "来源渠道": "飞书招聘",
+            "来源渠道": "招聘系统",
             "明确投递岗位": clean_text(
                 item.get("expected_job_title") or item.get("hire_job_title"),
                 300,
@@ -1032,7 +1030,7 @@ def build_base_operations(
             ),
             "记录类型": "正式面试",
             "备注": (
-                f"来源=飞书招聘；轮次={item.get('round') or '未标记'}；"
+                f"来源=招聘系统；轮次={item.get('round') or '未标记'}；"
                 f"ATS面评状态={clean_text(item.get('source_evaluation'), 100)}；"
                 "仅同步来源事实，不代表人工最终决定"
             ),
@@ -1059,19 +1057,19 @@ def build_base_operations(
 
 
 def sync_base_operations(
-    cli: LarkCli,
+    cli: CollaborationCli,
     operations: list[dict[str, Any]],
     config: dict[str, Any],
     commit: bool,
 ) -> dict[str, Any]:
     connectors = as_object(config.get("connectors"))
-    feishu = as_object(connectors.get("feishu"))
+    collaboration = as_object(connectors.get("collaboration"))
     hire = connector_config(config)
-    base_token = clean_text(feishu.get("base_app_token"), 200)
-    tables = as_object(feishu.get("tables"))
+    base_token = clean_text(collaboration.get("base_app_token"), 200)
+    tables = as_object(collaboration.get("tables"))
     identity = clean_text(hire.get("base_identity"), 20) or "user"
     if not base_token:
-        raise ValueError("connectors.feishu.base_app_token is required")
+        raise ValueError("connectors.collaboration.base_app_token is required")
     created = 0
     updated = 0
     planned = 0
@@ -1136,7 +1134,7 @@ def sync_base_operations(
                     write_fields.pop("状态", None)
                 current_note = clean_text(current.get("备注"), 2000)
                 if current_note and not (
-                    current_note.startswith("来源=飞书招聘；")
+                    current_note.startswith("来源=招聘系统；")
                     and current_note.endswith("仅同步来源事实，不代表人工最终决定")
                 ):
                     write_fields.pop("备注", None)
@@ -1187,7 +1185,7 @@ def default_snapshot_path(workspace: Path, until_ms: int) -> Path:
         workspace.expanduser().resolve()
         / ".recruitment-ops"
         / "snapshots"
-        / f"feishu-hire-{until_ms}.json"
+        / f"ats-{until_ms}.json"
     )
 
 
@@ -1236,7 +1234,8 @@ def main(argv: list[str] | None = None) -> int:
             as_object(config.get("execution")).get("connector_timeout_seconds", 60)
         )
         execution = as_object(config.get("execution"))
-        cli = LarkCli(
+        cli = CollaborationCli(
+            binary=clean_text(hire.get("cli_binary"), 300) or "collaboration-cli",
             timeout_seconds=timeout_seconds,
             max_attempts=int(execution.get("connector_max_attempts", 4)),
             retry_base_seconds=float(
@@ -1246,7 +1245,7 @@ def main(argv: list[str] | None = None) -> int:
                 execution.get("connector_retry_max_seconds", 8)
             ),
         )
-        client = FeishuHireClient(
+        client = AtsClient(
             cli,
             identity=clean_text(hire.get("identity"), 20) or "bot",
         )
@@ -1255,7 +1254,7 @@ def main(argv: list[str] | None = None) -> int:
         since_ms = args.since_ms if args.since_ms is not None else default_since
         until_ms = args.until_ms if args.until_ms is not None else default_until
         if since_ms < 0 or until_ms <= since_ms:
-            raise ValueError("invalid Feishu Hire time window")
+            raise ValueError("invalid ATS time window")
         snapshot = build_snapshot(
             client,
             config,

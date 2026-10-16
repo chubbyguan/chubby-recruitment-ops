@@ -53,7 +53,7 @@ Useful angles are project opportunity, first-stage outcomes, and case challenge.
 
 Every Campaign needs an explicit recruitment cycle ID. Every content variant needs a stable ID, channel-native asset script, and human approval bound to its content SHA-256. Every publication needs a stable publication ID, attribution code, manual status, and real URL after publication.
 
-Before `ready_to_publish`, retain a human approval record tied to the current job version, salary approval reference, and exact content fingerprint. The local hash detects source drift but does not authenticate Feishu; live connector readback supplies that trust boundary.
+Before `ready_to_publish`, retain a human approval record tied to the current job version, salary approval reference, and exact content fingerprint. The local hash detects source drift but does not authenticate the collaboration connector; live connector readback supplies that trust boundary.
 
 ## Mail processing and deduplication
 
@@ -61,7 +61,7 @@ Deduplicate in this order:
 
 1. stable Gmail `message_id`;
 2. attachment SHA-256;
-3. privacy-preserving normalized contact hash when the department has approved it;
+3. privacy-preserving normalized contact hash when the workspace has approved it;
 4. name plus current company plus current role as a weak duplicate hint;
 5. human confirmation before merging records.
 
@@ -122,7 +122,7 @@ Run this stage after inbox processing and again when producing the decision dige
 - When the candidate stage says interview but interview and Calendar facts are both absent, create a fact-confirmation warning before any invitation.
 - Conditional jobs are talent mapping only. Frozen, closed, filled, or unknown jobs cannot generate interview recommendations.
 - Build the recommendation idempotency key from candidate ID, job/version, score, action, evidence, risks, and missing-material codes.
-- Send only new or changed keys. Create a pending human decision action and store the Feishu message ID.
+- Send only new or changed keys. Create a pending human decision action and store the IM message ID.
 - Never auto-invite, schedule, reject, or mark the candidate passed.
 
 ## Protected attributes
@@ -177,6 +177,6 @@ Require a human before:
 
 ## Daily schedule
 
-Default operating window is configurable. A common pattern is inbox processing every two hours between 09:00 and 21:00 and one digest at 19:00 in the department timezone.
+Default operating window is configurable. A common pattern is inbox processing every two hours between 09:00 and 21:00 and one digest at 19:00 in the workspace timezone.
 
 Do not create or activate a schedule until connector probes and synthetic acceptance pass.

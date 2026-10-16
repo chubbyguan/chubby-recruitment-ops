@@ -280,7 +280,7 @@ OpenResume 是 AGPL-3.0。许可证文本明确针对通过网络向用户提供
 - 人工反馈；
 - 模型版本和重训练结果。
 
-这比“只把最后总分写进飞书”更可审计。当前插件应增加：
+这比“只把最后总分写进协作工具”更可审计。当前插件应增加：
 
 - `document_hash`、`parser_version`、`schema_version`；
 - `job_version`、每条要求的 ID；
@@ -288,7 +288,7 @@ OpenResume 是 AGPL-3.0。许可证文本明确针对通过网络向用户提供
 - 要求级 matched/missing/conflict/evidence/source；
 - 每个分项的输入和计算版本；
 - 人工覆盖前值、后值、修改人、理由和时间；
-- 发送给飞书前后的状态和失败原因。
+- 发送给协作工具前后的状态和失败原因。
 
 [`schemas.py`](https://github.com/jbarach2012/AIBF_API/blob/4e93e2e77674585215a1ee1d95caf74bdab80965/app/schemas.py) 的 `explanations`、`attributions`、`flagged`、`model_version` 接口也值得借鉴，但应映射为我们的“审计信号”，不能自动拒绝候选人。
 
@@ -381,7 +381,7 @@ AIBF_API 为 Apache-2.0，并有单独 [`NOTICE`](https://github.com/jbarach2012
 }
 ```
 
-个人联系信息和评分事实分离；飞书报告只使用候选人别名和事实引用。
+个人联系信息和评分事实分离；协作工具报告只使用候选人别名和事实引用。
 
 #### 5.2 混合解析器
 
@@ -515,7 +515,7 @@ AIBF 的 demo 会生成或使用年龄、性别、族裔等字段，这一做法
 - 云模型只接收岗位相关事实，不接收完整联系方式、证件、照片；
 - 配置允许使用的 provider、地区、保留策略和训练策略；
 - 保存数据流向和处理记录；
-- 未通过部门合规配置时，不调用云模型解析完整简历。
+- 未通过组织合规配置时，不调用云模型解析完整简历。
 
 ### 6.4 模型风险
 

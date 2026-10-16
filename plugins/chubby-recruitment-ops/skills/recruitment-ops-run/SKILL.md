@@ -1,6 +1,6 @@
 ---
 name: recruitment-ops-run
-description: Operate an initialized social recruitment workflow through strictly separated quick, scheduled, and maintenance execution profiles for campaign execution, mailbox applications, idempotent deduplication, job matching, evidence-based screening, interview recommendations, interview reconciliation, Feishu synchronization, decision backlogs, metrics, and daily digests. Use when a user asks to process a targeted recruitment item, run an incremental scheduled cycle, or explicitly maintain and release the plugin.
+description: Operate an initialized social recruitment workflow through strictly separated quick, scheduled, and maintenance execution profiles for campaign execution, mailbox applications, idempotent deduplication, job matching, evidence-based screening, interview recommendations, interview reconciliation, data-table synchronization, decision backlogs, metrics, and daily digests. Use when a user asks to process a targeted recruitment item, run an incremental scheduled cycle, or explicitly maintain and release the plugin.
 ---
 
 # Recruitment Ops Run
@@ -15,7 +15,7 @@ Before any connector call, repository edit, or broad scan:
 2. Select exactly one execution profile:
    - `quick` for an interactive campaign, candidate, interview, notification,
      metric, recommendation, current-data digest, bounded inbox delta, or
-     bounded Feishu Hire delta;
+     bounded ATS delta;
    - `scheduled` only for a timer-triggered incremental cycle;
    - `maintenance` only when the user explicitly asks to change, test, package,
      document, commit, or release the plugin.
@@ -37,7 +37,7 @@ Interactive requests default to `quick`, not `full`. “查看新简历” means
 next watermark batch of at most five messages. A single named job, candidate,
 application, interview, publication, or decision notification must use its
 stable ID as `target_id`; do not broaden that request into a mailbox, Calendar,
-Base, or Feishu Hire full scan. Ad-hoc recommendations and digests use only the
+Base, or ATS full scan. Ad-hoc recommendations and digests use only the
 current synchronized snapshot.
 
 The business modes below describe what recruitment work is performed. They do
@@ -56,17 +56,17 @@ full audit; it is never the interactive default.
 
 Use `$social-recruitment-campaign` for campaign construction and content packaging. Do not create an informal content draft outside the campaign model.
 
-## Feishu Hire source sync
+## ATS source sync
 
-When `connectors.feishu_hire.enabled` is true, synchronize Feishu Hire before
+When `connectors.ats.enabled` is true, synchronize ATS before
 `inbox`, `recommendation`, `interview`, or `full` mode:
 
-1. Read Feishu Hire only with the configured bot identity. Use the explicit
+1. Read ATS only with the configured bot identity. Use the explicit
    `mapped_jobs` allowlist; never infer a job mapping from a similar title.
 2. Run a dry-run first:
 
    ```bash
-   python3 <plugin-root>/scripts/sync_feishu_hire.py sync \
+   python3 <plugin-root>/scripts/sync_ats.py sync \
      --workspace <business-workspace>
    ```
 
@@ -162,7 +162,7 @@ After all inbox items are processed, run recommendation mode against the current
      list-notifications --status pending
    ```
 
-8. Claim each item before using the authorized Feishu adapter. Map stable IDs to an authorized display name only at this final boundary. Include role, score, approved evidence/risk labels, and suggested action. Do not include contact details, resume excerpts, or protected attributes.
+8. Claim each item before using the authorized collaboration adapter. Map stable IDs to an authorized display name only at this final boundary. Include role, score, approved evidence/risk labels, and suggested action. Do not include contact details, resume excerpts, or protected attributes.
 9. After sending, record the returned message ID with `complete-notification`. A failed send must be marked failed with the active lease so a later run can retry.
 10. Record each human choice with `record-action-decision` and the exact action fingerprint. Allowed choices are `approve`, `request_info`, `talent_pool`, and `decline`. A decline closes the recommendation action; it does not automatically reject the candidate.
 11. After `approve`, read the authorized interviewer's Calendar and propose three reasonable slots. Creating the Calendar Event and sending the invitation still require a separate human confirmation.
@@ -203,7 +203,7 @@ Use only candidate aliases such as `候选人A` or `CAND-001`. The digest accept
 ## Full mode
 
 Run `campaign` only when an approved job and publication plan exist. Synchronize
-Feishu Hire first when enabled, then run `inbox`, `recommendation`, `interview`,
+ATS first when enabled, then run `inbox`, `recommendation`, `interview`,
 and `metrics`; run `digest` only at the configured digest hour or when explicitly
 requested.
 
@@ -218,12 +218,12 @@ requested.
 - Do not score age, sex, gender, photo, marital or fertility status, ethnicity, nationality, native place, disability, religion, or other protected traits.
 - Do not fabricate platform analytics.
 - Do not send candidate PII to unauthorized chats, tools, or files.
-- Before any candidate-specific Feishu decision notification, read the final
+- Before any candidate-specific IM decision notification, read the final
   candidate and decision records again. Build
   `assets/decision-notification.example.json` with the candidate display name,
   candidate/application/action IDs, job title, score breakdown, evidence,
   risks, missing information, current stage, interview fact, decision options,
-  and both Feishu record links. Run:
+  and both record links. Run:
   `python3 scripts/render_decision_notification.py <input.json>`.
   If the renderer rejects the payload or any required field is absent, mark
   the notification failed/incomplete and do not send it. Never send a score or

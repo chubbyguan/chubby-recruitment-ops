@@ -57,6 +57,6 @@
     "先补资料",
     "转人才池或关闭复核"
   ],
-  "candidate_record_url": "https://example.feishu.cn/record/CANDIDATE",
-  "decision_record_url": "https://example.feishu.cn/record/DECISION"
+  "candidate_record_url": "https://records.example.com/record/CANDIDATE",
+  "decision_record_url": "https://records.example.com/record/DECISION"
 }
